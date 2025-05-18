@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import authService, { LoginCredentials, RegisterData } from '@/services/authService';
-import { toast } from '@/components/ui/toast';
+import { useToast } from '@/components/ui/use-toast';
 
 export type UserRole = 'student' | 'tutor' | 'admin';
 
@@ -10,6 +10,7 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  profileImage?: string;
 }
 
 interface AuthContextType {
@@ -19,6 +20,7 @@ interface AuthContextType {
   register: (name: string, email: string, password: string, role: UserRole) => Promise<void>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
+  isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -27,6 +29,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const { toast } = useToast();
 
   // Check if user is already logged in
   useEffect(() => {
@@ -70,7 +73,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toast({
         title: 'Login successful',
         description: `Welcome back, ${response.user.name}!`,
-        variant: 'default',
       });
     } catch (error: any) {
       console.error('Login error:', error);
@@ -98,7 +100,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toast({
         title: 'Registration successful',
         description: `Welcome to our platform, ${response.user.name}!`,
-        variant: 'default',
       });
     } catch (error: any) {
       console.error('Registration error:', error);
@@ -122,7 +123,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toast({
         title: 'Logout successful',
         description: 'You have been logged out.',
-        variant: 'default',
       });
     } catch (error) {
       console.error('Logout error:', error);
@@ -143,6 +143,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         register,
         logout,
         isAuthenticated,
+        isLoading: loading,
       }}
     >
       {children}

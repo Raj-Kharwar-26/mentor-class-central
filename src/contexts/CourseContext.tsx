@@ -1,8 +1,12 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import courseService, { Course, CourseEnrollment } from '@/services/courseService';
+import contentService, { Video, PDFDocument, LiveSession } from '@/services/contentService';
 import { useAuth } from './AuthContext';
-import { toast } from '@/components/ui/toast';
+import { useToast } from '@/components/ui/use-toast';
+
+// Re-export the Course type so it can be imported from this file
+export type { Course } from '@/services/courseService';
 
 interface CourseContextType {
   courses: Course[];
@@ -13,6 +17,12 @@ interface CourseContextType {
   fetchEnrolledCourses: () => Promise<void>;
   enrollInCourse: (courseId: string) => Promise<boolean>;
   getCourseById: (id: string) => Course | undefined;
+  getCourse: (id: string) => Promise<Course | undefined>;
+  getCourseVideos: (courseId: string) => Promise<Video[]>;
+  getCoursePDFs: (courseId: string) => Promise<PDFDocument[]>;
+  getCourseLiveSessions: (courseId: string) => Promise<LiveSession[]>;
+  isEnrolled: (courseId: string) => boolean;
+  enrollCourse: (courseId: string) => Promise<boolean>;
 }
 
 const CourseContext = createContext<CourseContextType | undefined>(undefined);
@@ -23,6 +33,7 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const { isAuthenticated, user } = useAuth();
+  const { toast } = useToast();
 
   // Fetch all courses on initial load
   useEffect(() => {
@@ -85,7 +96,6 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       toast({
         title: 'Enrolled successfully',
         description: 'You have successfully enrolled in this course.',
-        variant: 'default',
       });
       return true;
     } catch (error: any) {
@@ -105,6 +115,51 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return courses.find(course => course.id === id);
   };
 
+  // Additional methods for CourseDetail page
+  const getCourse = async (id: string): Promise<Course | undefined> => {
+    try {
+      const course = await courseService.getCourseById(id);
+      return course;
+    } catch (error) {
+      console.error(`Error getting course ${id}:`, error);
+      return undefined;
+    }
+  };
+
+  const getCourseVideos = async (courseId: string): Promise<Video[]> => {
+    try {
+      return await contentService.getVideosForCourse(courseId);
+    } catch (error) {
+      console.error(`Error getting videos for course ${courseId}:`, error);
+      return [];
+    }
+  };
+
+  const getCoursePDFs = async (courseId: string): Promise<PDFDocument[]> => {
+    try {
+      return await contentService.getPDFsForCourse(courseId);
+    } catch (error) {
+      console.error(`Error getting PDFs for course ${courseId}:`, error);
+      return [];
+    }
+  };
+
+  const getCourseLiveSessions = async (courseId: string): Promise<LiveSession[]> => {
+    try {
+      return await contentService.getLiveSessionsForCourse(courseId);
+    } catch (error) {
+      console.error(`Error getting live sessions for course ${courseId}:`, error);
+      return [];
+    }
+  };
+
+  const isEnrolled = (courseId: string): boolean => {
+    return enrolledCourses.some(enrollment => enrollment.courseId === courseId);
+  };
+
+  // Alias for enrollInCourse to match the CourseDetail needs
+  const enrollCourse = enrollInCourse;
+
   return (
     <CourseContext.Provider 
       value={{
@@ -116,6 +171,12 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         fetchEnrolledCourses,
         enrollInCourse,
         getCourseById,
+        getCourse,
+        getCourseVideos,
+        getCoursePDFs,
+        getCourseLiveSessions,
+        isEnrolled,
+        enrollCourse,
       }}
     >
       {children}

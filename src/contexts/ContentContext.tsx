@@ -1,60 +1,53 @@
 
 import React, { createContext, useContext, useState } from 'react';
 import contentService, { Video, PDFDocument, LiveSession } from '@/services/contentService';
-import { toast } from '@/components/ui/toast';
+import { useAuth } from './AuthContext';
+import { useToast } from '@/components/ui/use-toast';
 
 interface ContentContextType {
-  videos: Record<string, Video[]>; // courseId -> videos
-  pdfs: Record<string, PDFDocument[]>; // courseId -> pdfs
-  liveSessions: Record<string, LiveSession[]>; // courseId -> sessions
-  upcomingSessions: LiveSession[];
+  videos: Video[];
+  pdfs: PDFDocument[];
+  liveSessions: LiveSession[];
   isLoading: boolean;
-  
-  // Videos
-  fetchVideosForCourse: (courseId: string) => Promise<Video[]>;
+  fetchCourseContent: (courseId: string) => Promise<void>;
   uploadVideo: (courseId: string, formData: FormData) => Promise<boolean>;
-  
-  // PDFs
-  fetchPDFsForCourse: (courseId: string) => Promise<PDFDocument[]>;
   uploadPDF: (courseId: string, formData: FormData) => Promise<boolean>;
-  downloadPDF: (pdfId: string, filename: string) => Promise<void>;
-  
-  // Live Sessions
-  fetchLiveSessionsForCourse: (courseId: string) => Promise<LiveSession[]>;
-  fetchUpcomingSessions: () => Promise<LiveSession[]>;
-  scheduleLiveSession: (sessionData: Omit<LiveSession, 'id' | 'status'>) => Promise<LiveSession | null>;
+  scheduleLiveSession: (sessionData: Omit<LiveSession, 'id' | 'status'>) => Promise<boolean>;
   startLiveSession: (sessionId: string) => Promise<{ sessionId: string, roomToken: string } | null>;
   joinLiveSession: (sessionId: string) => Promise<{ sessionId: string, roomToken: string } | null>;
-  endLiveSession: (sessionId: string) => Promise<boolean>;
+  downloadPDF: (pdfId: string) => Promise<Blob | null>;
+  fetchUpcomingSessions: () => Promise<LiveSession[]>;
 }
 
 const ContentContext = createContext<ContentContextType | undefined>(undefined);
 
 export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [videos, setVideos] = useState<Record<string, Video[]>>({});
-  const [pdfs, setPdfs] = useState<Record<string, PDFDocument[]>>({});
-  const [liveSessions, setLiveSessions] = useState<Record<string, LiveSession[]>>({});
-  const [upcomingSessions, setUpcomingSessions] = useState<LiveSession[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [videos, setVideos] = useState<Video[]>([]);
+  const [pdfs, setPdfs] = useState<PDFDocument[]>([]);
+  const [liveSessions, setLiveSessions] = useState<LiveSession[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const { user } = useAuth();
+  const { toast } = useToast();
 
-  // Videos
-  const fetchVideosForCourse = async (courseId: string): Promise<Video[]> => {
+  const fetchCourseContent = async (courseId: string) => {
     try {
       setIsLoading(true);
-      const data = await contentService.getVideosForCourse(courseId);
-      setVideos(prev => ({
-        ...prev,
-        [courseId]: data
-      }));
-      return data;
+      const [videosData, pdfsData, liveSessionsData] = await Promise.all([
+        contentService.getVideosForCourse(courseId),
+        contentService.getPDFsForCourse(courseId),
+        contentService.getLiveSessionsForCourse(courseId)
+      ]);
+
+      setVideos(videosData);
+      setPdfs(pdfsData);
+      setLiveSessions(liveSessionsData);
     } catch (error: any) {
-      console.error(`Error fetching videos for course ${courseId}:`, error);
+      console.error('Error fetching course content:', error);
       toast({
         title: 'Error',
-        description: 'Failed to load videos for this course.',
+        description: 'Failed to load course content.',
         variant: 'destructive',
       });
-      return [];
     } finally {
       setIsLoading(false);
     }
@@ -63,21 +56,11 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const uploadVideo = async (courseId: string, formData: FormData): Promise<boolean> => {
     try {
       setIsLoading(true);
-      const video = await contentService.uploadVideo(courseId, formData);
-      
-      // Update videos state
-      setVideos(prev => {
-        const courseVideos = prev[courseId] || [];
-        return {
-          ...prev,
-          [courseId]: [...courseVideos, video]
-        };
-      });
-      
+      const newVideo = await contentService.uploadVideo(courseId, formData);
+      setVideos(prev => [...prev, newVideo]);
       toast({
-        title: 'Success',
-        description: 'Video uploaded successfully.',
-        variant: 'default',
+        title: 'Video uploaded',
+        description: 'Your video has been successfully uploaded.',
       });
       return true;
     } catch (error: any) {
@@ -93,47 +76,14 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
-  // PDFs
-  const fetchPDFsForCourse = async (courseId: string): Promise<PDFDocument[]> => {
-    try {
-      setIsLoading(true);
-      const data = await contentService.getPDFsForCourse(courseId);
-      setPdfs(prev => ({
-        ...prev,
-        [courseId]: data
-      }));
-      return data;
-    } catch (error: any) {
-      console.error(`Error fetching PDFs for course ${courseId}:`, error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load PDF materials for this course.',
-        variant: 'destructive',
-      });
-      return [];
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const uploadPDF = async (courseId: string, formData: FormData): Promise<boolean> => {
     try {
       setIsLoading(true);
-      const pdf = await contentService.uploadPDF(courseId, formData);
-      
-      // Update PDFs state
-      setPdfs(prev => {
-        const coursePdfs = prev[courseId] || [];
-        return {
-          ...prev,
-          [courseId]: [...coursePdfs, pdf]
-        };
-      });
-      
+      const newPDF = await contentService.uploadPDF(courseId, formData);
+      setPdfs(prev => [...prev, newPDF]);
       toast({
-        title: 'Success',
-        description: 'PDF uploaded successfully.',
-        variant: 'default',
+        title: 'PDF uploaded',
+        description: 'Your PDF has been successfully uploaded.',
       });
       return true;
     } catch (error: any) {
@@ -149,105 +99,16 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
-  const downloadPDF = async (pdfId: string, filename: string): Promise<void> => {
+  const scheduleLiveSession = async (sessionData: Omit<LiveSession, 'id' | 'status'>): Promise<boolean> => {
     try {
       setIsLoading(true);
-      const blob = await contentService.downloadPDF(pdfId);
-      
-      // Create download link and trigger download
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      
+      const newSession = await contentService.scheduleLiveSession(sessionData);
+      setLiveSessions(prev => [...prev, newSession]);
       toast({
-        title: 'Download started',
-        description: `Downloading ${filename}...`,
-        variant: 'default',
+        title: 'Session scheduled',
+        description: 'Your live session has been successfully scheduled.',
       });
-    } catch (error: any) {
-      console.error(`Error downloading PDF ${pdfId}:`, error);
-      toast({
-        title: 'Download failed',
-        description: 'Failed to download the PDF. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Live Sessions
-  const fetchLiveSessionsForCourse = async (courseId: string): Promise<LiveSession[]> => {
-    try {
-      setIsLoading(true);
-      const data = await contentService.getLiveSessionsForCourse(courseId);
-      setLiveSessions(prev => ({
-        ...prev,
-        [courseId]: data
-      }));
-      return data;
-    } catch (error: any) {
-      console.error(`Error fetching live sessions for course ${courseId}:`, error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load live sessions for this course.',
-        variant: 'destructive',
-      });
-      return [];
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const fetchUpcomingSessions = async (): Promise<LiveSession[]> => {
-    try {
-      setIsLoading(true);
-      const data = await contentService.getAllUpcomingSessions();
-      setUpcomingSessions(data);
-      return data;
-    } catch (error: any) {
-      console.error('Error fetching upcoming sessions:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load upcoming live sessions.',
-        variant: 'destructive',
-      });
-      return [];
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const scheduleLiveSession = async (sessionData: Omit<LiveSession, 'id' | 'status'>): Promise<LiveSession | null> => {
-    try {
-      setIsLoading(true);
-      const session = await contentService.scheduleLiveSession(sessionData);
-      
-      // Update liveSessions state
-      setLiveSessions(prev => {
-        const courseSessions = prev[session.courseId] || [];
-        return {
-          ...prev,
-          [session.courseId]: [...courseSessions, session]
-        };
-      });
-      
-      // Update upcoming sessions if applicable
-      if (new Date(session.date) > new Date()) {
-        setUpcomingSessions(prev => [...prev, session]);
-      }
-      
-      toast({
-        title: 'Success',
-        description: 'Live session scheduled successfully.',
-        variant: 'default',
-      });
-      return session;
+      return true;
     } catch (error: any) {
       console.error('Error scheduling live session:', error);
       toast({
@@ -255,7 +116,7 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
         description: error.response?.data?.message || 'Failed to schedule live session.',
         variant: 'destructive',
       });
-      return null;
+      return false;
     } finally {
       setIsLoading(false);
     }
@@ -266,33 +127,21 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setIsLoading(true);
       const data = await contentService.startLiveSession(sessionId);
       
-      // Update session status in state
-      setLiveSessions(prev => {
-        const updatedSessions: Record<string, LiveSession[]> = {};
-        
-        Object.keys(prev).forEach(courseId => {
-          updatedSessions[courseId] = prev[courseId].map(session => {
-            if (session.id === sessionId) {
-              return { ...session, status: 'live' };
-            }
-            return session;
-          });
-        });
-        
-        return updatedSessions;
-      });
+      // Update live session status
+      setLiveSessions(prev => prev.map(session => 
+        session.id === sessionId ? { ...session, status: 'live' as const } : session
+      ));
       
       toast({
         title: 'Live session started',
-        description: 'Your live session has been started successfully.',
-        variant: 'default',
+        description: 'Your live session has started successfully.',
       });
       return data;
     } catch (error: any) {
-      console.error(`Error starting live session ${sessionId}:`, error);
+      console.error('Error starting live session:', error);
       toast({
         title: 'Failed to start session',
-        description: error.response?.data?.message || 'Could not start the live session.',
+        description: error.response?.data?.message || 'Could not start live session.',
         variant: 'destructive',
       });
       return null;
@@ -308,14 +157,13 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
       toast({
         title: 'Joining live session',
         description: 'Connecting to the live session...',
-        variant: 'default',
       });
       return data;
     } catch (error: any) {
-      console.error(`Error joining live session ${sessionId}:`, error);
+      console.error('Error joining live session:', error);
       toast({
         title: 'Failed to join session',
-        description: error.response?.data?.message || 'Could not join the live session.',
+        description: error.response?.data?.message || 'Could not join live session.',
         variant: 'destructive',
       });
       return null;
@@ -324,72 +172,57 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
-  const endLiveSession = async (sessionId: string): Promise<boolean> => {
+  const downloadPDF = async (pdfId: string): Promise<Blob | null> => {
     try {
       setIsLoading(true);
-      await contentService.endLiveSession(sessionId);
-      
-      // Update session status in state
-      setLiveSessions(prev => {
-        const updatedSessions: Record<string, LiveSession[]> = {};
-        
-        Object.keys(prev).forEach(courseId => {
-          updatedSessions[courseId] = prev[courseId].map(session => {
-            if (session.id === sessionId) {
-              return { ...session, status: 'completed' };
-            }
-            return session;
-          });
-        });
-        
-        return updatedSessions;
-      });
-      
-      // Remove from upcoming sessions if it was there
-      setUpcomingSessions(prev => 
-        prev.filter(session => session.id !== sessionId)
-      );
-      
-      toast({
-        title: 'Live session ended',
-        description: 'The live session has been ended successfully.',
-        variant: 'default',
-      });
-      return true;
+      const blob = await contentService.downloadPDF(pdfId);
+      return blob;
     } catch (error: any) {
-      console.error(`Error ending live session ${sessionId}:`, error);
+      console.error('Error downloading PDF:', error);
       toast({
-        title: 'Failed to end session',
-        description: error.response?.data?.message || 'Could not end the live session.',
+        title: 'Download failed',
+        description: 'Could not download the PDF file.',
         variant: 'destructive',
       });
-      return false;
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchUpcomingSessions = async (): Promise<LiveSession[]> => {
+    try {
+      setIsLoading(true);
+      const sessions = await contentService.getAllUpcomingSessions();
+      return sessions;
+    } catch (error: any) {
+      console.error('Error fetching upcoming sessions:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load upcoming sessions.',
+        variant: 'destructive',
+      });
+      return [];
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <ContentContext.Provider
-      value={{
-        videos,
-        pdfs,
-        liveSessions,
-        upcomingSessions,
-        isLoading,
-        fetchVideosForCourse,
-        uploadVideo,
-        fetchPDFsForCourse,
-        uploadPDF,
-        downloadPDF,
-        fetchLiveSessionsForCourse,
-        fetchUpcomingSessions,
-        scheduleLiveSession,
-        startLiveSession,
-        joinLiveSession,
-        endLiveSession,
-      }}
-    >
+    <ContentContext.Provider value={{
+      videos,
+      pdfs,
+      liveSessions,
+      isLoading,
+      fetchCourseContent,
+      uploadVideo,
+      uploadPDF,
+      scheduleLiveSession,
+      startLiveSession,
+      joinLiveSession,
+      downloadPDF,
+      fetchUpcomingSessions,
+    }}>
       {children}
     </ContentContext.Provider>
   );
