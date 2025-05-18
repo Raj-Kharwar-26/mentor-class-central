@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -7,17 +7,36 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 import Header from '@/components/Header';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
+  
+  // Redirect if already logged in
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/');
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!email.trim() || !password.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Email and password are required",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsLoading(true);
     
     try {
@@ -25,6 +44,7 @@ const Login: React.FC = () => {
       navigate('/');
     } catch (error) {
       console.error('Login error:', error);
+      // Error toast is already handled in the AuthContext
     } finally {
       setIsLoading(false);
     }
@@ -48,7 +68,21 @@ const Login: React.FC = () => {
       }
       
       await login(demoEmail, 'password');
-      navigate('/');
+      
+      // Navigate to the appropriate dashboard based on role
+      switch (role) {
+        case 'student':
+          navigate('/student');
+          break;
+        case 'tutor':
+          navigate('/tutor');
+          break;
+        case 'admin':
+          navigate('/admin');
+          break;
+        default:
+          navigate('/');
+      }
     } catch (error) {
       console.error('Demo login error:', error);
     } finally {
@@ -78,6 +112,7 @@ const Login: React.FC = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  disabled={isLoading}
                 />
               </div>
               <div className="space-y-2">
@@ -97,6 +132,7 @@ const Login: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  disabled={isLoading}
                 />
               </div>
               <Button type="submit" className="w-full" disabled={isLoading}>

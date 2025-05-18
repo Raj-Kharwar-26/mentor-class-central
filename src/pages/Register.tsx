@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useAuth, UserRole } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 import Header from '@/components/Header';
 
 const Register: React.FC = () => {
@@ -16,26 +17,87 @@ const Register: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState<UserRole>('student');
   const [isLoading, setIsLoading] = useState(false);
-  const [passwordError, setPasswordError] = useState('');
-  const { register } = useAuth();
+  const [errors, setErrors] = useState<{
+    name?: string;
+    email?: string;
+    password?: string;
+    confirmPassword?: string;
+  }>({});
+  const { register, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
+  
+  // Redirect if already logged in
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/');
+    }
+  }, [isAuthenticated, navigate]);
+
+  const validateForm = () => {
+    const newErrors: {
+      name?: string;
+      email?: string;
+      password?: string;
+      confirmPassword?: string;
+    } = {};
+    
+    if (!name.trim()) {
+      newErrors.name = "Name is required";
+    }
+    
+    if (!email.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!/^\S+@\S+\.\S+$/.test(email)) {
+      newErrors.email = "Invalid email address";
+    }
+    
+    if (!password) {
+      newErrors.password = "Password is required";
+    } else if (password.length < 8) {
+      newErrors.password = "Password must be at least 8 characters";
+    }
+    
+    if (password !== confirmPassword) {
+      newErrors.confirmPassword = "Passwords don't match";
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (password !== confirmPassword) {
-      setPasswordError("Passwords don't match");
+    if (!validateForm()) {
       return;
     }
     
-    setPasswordError('');
     setIsLoading(true);
     
     try {
       await register(name, email, password, role);
-      navigate('/');
-    } catch (error) {
+      
+      toast({
+        title: "Registration successful",
+        description: "Your account has been created successfully",
+        variant: "default",
+      });
+      
+      // Navigate based on role
+      switch (role) {
+        case 'student':
+          navigate('/student');
+          break;
+        case 'tutor':
+          navigate('/tutor');
+          break;
+        default:
+          navigate('/');
+      }
+    } catch (error: any) {
       console.error('Registration error:', error);
+      // Error toast is handled in the AuthContext
     } finally {
       setIsLoading(false);
     }
@@ -63,7 +125,11 @@ const Register: React.FC = () => {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
+                  disabled={isLoading}
                 />
+                {errors.name && (
+                  <p className="text-sm text-red-500">{errors.name}</p>
+                )}
               </div>
               
               <div className="space-y-2">
@@ -75,7 +141,11 @@ const Register: React.FC = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  disabled={isLoading}
                 />
+                {errors.email && (
+                  <p className="text-sm text-red-500">{errors.email}</p>
+                )}
               </div>
               
               <div className="space-y-2">
@@ -87,7 +157,11 @@ const Register: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  disabled={isLoading}
                 />
+                {errors.password && (
+                  <p className="text-sm text-red-500">{errors.password}</p>
+                )}
               </div>
               
               <div className="space-y-2">
@@ -99,9 +173,10 @@ const Register: React.FC = () => {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
+                  disabled={isLoading}
                 />
-                {passwordError && (
-                  <p className="text-sm text-red-500">{passwordError}</p>
+                {errors.confirmPassword && (
+                  <p className="text-sm text-red-500">{errors.confirmPassword}</p>
                 )}
               </div>
               
