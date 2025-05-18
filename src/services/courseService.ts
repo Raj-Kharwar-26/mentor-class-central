@@ -1,4 +1,3 @@
-
 import api from './api';
 
 export interface Course {
@@ -11,6 +10,7 @@ export interface Course {
   instructor: {
     id: string;
     name: string;
+    profileImage?: string;
   };
   price: number;
   duration: string;
@@ -21,6 +21,7 @@ export interface Course {
     pdfs: number;
     liveClasses: number;
   };
+  updatedAt: string;
 }
 
 export interface CourseEnrollment {

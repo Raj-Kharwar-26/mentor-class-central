@@ -17,10 +17,10 @@ interface CourseContextType {
   fetchEnrolledCourses: () => Promise<void>;
   enrollInCourse: (courseId: string) => Promise<boolean>;
   getCourseById: (id: string) => Course | undefined;
-  getCourse: (id: string) => Promise<Course | undefined>;
-  getCourseVideos: (courseId: string) => Promise<Video[]>;
-  getCoursePDFs: (courseId: string) => Promise<PDFDocument[]>;
-  getCourseLiveSessions: (courseId: string) => Promise<LiveSession[]>;
+  getCourse: (id: string) => Course | undefined;
+  getCourseVideos: (courseId: string) => Video[];
+  getCoursePDFs: (courseId: string) => PDFDocument[];
+  getCourseLiveSessions: (courseId: string) => LiveSession[];
   isEnrolled: (courseId: string) => boolean;
   enrollCourse: (courseId: string) => Promise<boolean>;
 }
@@ -30,6 +30,9 @@ const CourseContext = createContext<CourseContextType | undefined>(undefined);
 export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [enrolledCourses, setEnrolledCourses] = useState<CourseEnrollment[]>([]);
+  const [videos, setVideos] = useState<Record<string, Video[]>>({});
+  const [pdfs, setPdfs] = useState<Record<string, PDFDocument[]>>({});
+  const [liveSessions, setLiveSessions] = useState<Record<string, LiveSession[]>>({});
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const { isAuthenticated, user } = useAuth();
@@ -115,42 +118,51 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return courses.find(course => course.id === id);
   };
 
-  // Additional methods for CourseDetail page
-  const getCourse = async (id: string): Promise<Course | undefined> => {
-    try {
-      const course = await courseService.getCourseById(id);
-      return course;
-    } catch (error) {
-      console.error(`Error getting course ${id}:`, error);
-      return undefined;
-    }
+  // Modified to return actual course data, not a Promise
+  const getCourse = (id: string): Course | undefined => {
+    return courses.find(course => course.id === id);
   };
 
-  const getCourseVideos = async (courseId: string): Promise<Video[]> => {
-    try {
-      return await contentService.getVideosForCourse(courseId);
-    } catch (error) {
-      console.error(`Error getting videos for course ${courseId}:`, error);
+  // Modified to fetch video data and store it in state
+  const getCourseVideos = (courseId: string): Video[] => {
+    if (!videos[courseId]) {
+      // Fetch videos if not already in state
+      contentService.getVideosForCourse(courseId).then(data => {
+        setVideos(prev => ({ ...prev, [courseId]: data }));
+      }).catch(error => {
+        console.error(`Error getting videos for course ${courseId}:`, error);
+      });
       return [];
     }
+    return videos[courseId];
   };
 
-  const getCoursePDFs = async (courseId: string): Promise<PDFDocument[]> => {
-    try {
-      return await contentService.getPDFsForCourse(courseId);
-    } catch (error) {
-      console.error(`Error getting PDFs for course ${courseId}:`, error);
+  // Modified to fetch PDF data and store it in state
+  const getCoursePDFs = (courseId: string): PDFDocument[] => {
+    if (!pdfs[courseId]) {
+      // Fetch PDFs if not already in state
+      contentService.getPDFsForCourse(courseId).then(data => {
+        setPdfs(prev => ({ ...prev, [courseId]: data }));
+      }).catch(error => {
+        console.error(`Error getting PDFs for course ${courseId}:`, error);
+      });
       return [];
     }
+    return pdfs[courseId];
   };
 
-  const getCourseLiveSessions = async (courseId: string): Promise<LiveSession[]> => {
-    try {
-      return await contentService.getLiveSessionsForCourse(courseId);
-    } catch (error) {
-      console.error(`Error getting live sessions for course ${courseId}:`, error);
+  // Modified to fetch live sessions data and store it in state
+  const getCourseLiveSessions = (courseId: string): LiveSession[] => {
+    if (!liveSessions[courseId]) {
+      // Fetch live sessions if not already in state
+      contentService.getLiveSessionsForCourse(courseId).then(data => {
+        setLiveSessions(prev => ({ ...prev, [courseId]: data }));
+      }).catch(error => {
+        console.error(`Error getting live sessions for course ${courseId}:`, error);
+      });
       return [];
     }
+    return liveSessions[courseId];
   };
 
   const isEnrolled = (courseId: string): boolean => {
