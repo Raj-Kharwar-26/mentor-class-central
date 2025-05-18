@@ -20,16 +20,16 @@ import { useCourses } from '@/contexts/CourseContext';
 const CoursesPage: React.FC = () => {
   const { courses } = useCourses();
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedClass, setSelectedClass] = useState<string>('');
-  const [selectedSubject, setSelectedSubject] = useState<string>('');
+  const [selectedClass, setSelectedClass] = useState<string>('all');
+  const [selectedSubject, setSelectedSubject] = useState<string>('all');
 
   // Filters
   const filteredCourses = courses.filter((course) => {
     const matchesSearch = course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       course.description.toLowerCase().includes(searchQuery.toLowerCase());
     
-    const matchesClass = selectedClass ? course.classGrade === selectedClass : true;
-    const matchesSubject = selectedSubject ? course.subject === selectedSubject : true;
+    const matchesClass = selectedClass === 'all' ? true : course.classGrade === selectedClass;
+    const matchesSubject = selectedSubject === 'all' ? true : course.subject === selectedSubject;
     
     return matchesSearch && matchesClass && matchesSubject;
   });
@@ -73,7 +73,7 @@ const CoursesPage: React.FC = () => {
                 <SelectValue placeholder="Class/Grade" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Classes</SelectItem>
+                <SelectItem value="all">All Classes</SelectItem>
                 <SelectItem value="9">Class 9</SelectItem>
                 <SelectItem value="10">Class 10</SelectItem>
                 <SelectItem value="11">Class 11</SelectItem>
@@ -89,7 +89,7 @@ const CoursesPage: React.FC = () => {
                 <SelectValue placeholder="Subject" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Subjects</SelectItem>
+                <SelectItem value="all">All Subjects</SelectItem>
                 <SelectItem value="mathematics">Mathematics</SelectItem>
                 <SelectItem value="physics">Physics</SelectItem>
                 <SelectItem value="chemistry">Chemistry</SelectItem>
@@ -120,8 +120,8 @@ const CoursesPage: React.FC = () => {
                 className="mt-4"
                 onClick={() => {
                   setSearchQuery('');
-                  setSelectedClass('');
-                  setSelectedSubject('');
+                  setSelectedClass('all');
+                  setSelectedSubject('all');
                 }}
               >
                 Clear filters
