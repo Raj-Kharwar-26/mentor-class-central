@@ -22,7 +22,8 @@ const CourseCard: React.FC<CourseCardProps> = ({ course }) => {
   
   // Get subject badge color
   const getSubjectColor = (subject: string) => {
-    switch(subject) {
+    const lowerSubject = subject.toLowerCase();
+    switch(lowerSubject) {
       case 'mathematics':
         return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
       case 'physics':
@@ -41,7 +42,7 @@ const CourseCard: React.FC<CourseCardProps> = ({ course }) => {
       <Card className="overflow-hidden hover:shadow-lg transition-all duration-300 h-full flex flex-col">
         <div className="relative aspect-video overflow-hidden">
           <img 
-            src={course.thumbnail} 
+            src={course.thumbnail || 'https://placehold.co/600x400?text=Course'} 
             alt={course.title}
             className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
           />
@@ -50,11 +51,13 @@ const CourseCard: React.FC<CourseCardProps> = ({ course }) => {
               {course.subject.charAt(0).toUpperCase() + course.subject.slice(1)}
             </Badge>
           </div>
-          <div className="absolute bottom-2 left-2">
-            <Badge variant="outline" className="bg-black/70 text-white border-0">
-              Class {course.classGrade}
-            </Badge>
-          </div>
+          {course.class_grade && (
+            <div className="absolute bottom-2 left-2">
+              <Badge variant="outline" className="bg-black/70 text-white border-0">
+                Class {course.class_grade}
+              </Badge>
+            </div>
+          )}
         </div>
         
         <CardContent className="pt-4 flex-grow">
@@ -66,11 +69,11 @@ const CourseCard: React.FC<CourseCardProps> = ({ course }) => {
           <div className="flex items-center mt-2 text-sm text-muted-foreground">
             <div className="flex items-center">
               <img 
-                src={course.instructor.profileImage || 'https://i.pravatar.cc/150'} 
-                alt={course.instructor.name}
+                src={course.instructor?.profileImage || 'https://i.pravatar.cc/150'} 
+                alt={course.instructor?.name}
                 className="w-5 h-5 rounded-full mr-1.5"
               />
-              <span>{course.instructor.name}</span>
+              <span>{course.instructor?.name}</span>
             </div>
           </div>
         </CardContent>
@@ -78,9 +81,9 @@ const CourseCard: React.FC<CourseCardProps> = ({ course }) => {
         <CardFooter className="pt-0 flex items-center justify-between border-t mt-auto">
           <div className="flex items-center">
             <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400 mr-1" />
-            <span className="text-sm font-medium">{course.rating}</span>
+            <span className="text-sm font-medium">{course.rating || 4.5}</span>
             <span className="text-xs text-muted-foreground ml-1">
-              ({course.enrolledStudentCount})
+              ({course.enrolledStudentCount || 0})
             </span>
           </div>
           

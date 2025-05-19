@@ -1,38 +1,103 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import courseService, { Course, CourseEnrollment } from '@/services/courseService';
-import contentService, { Video, PDFDocument, LiveSession } from '@/services/contentService';
-import { useAuth } from './AuthContext';
 import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from './AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
-// Re-export the Course type so it can be imported from this file
-export type { Course } from '@/services/courseService';
+// Types for database entities
+export interface Course {
+  id: string;
+  title: string;
+  description: string;
+  thumbnail: string | null;
+  subject: string;
+  class_grade: string | null;
+  price: number;
+  duration: string;
+  tutor_id: string;
+  is_published: boolean;
+  is_approved: boolean;
+  created_at: string;
+  updated_at: string;
+  instructor?: {
+    name: string;
+    profileImage?: string;
+  };
+  rating?: number;
+  enrolledStudentCount?: number;
+}
+
+export interface Enrollment {
+  id: string;
+  course_id: string;
+  user_id: string;
+  progress: number;
+  status: 'active' | 'completed' | 'cancelled';
+  enrollment_date: string;
+  completion_date: string | null;
+}
+
+export interface Video {
+  id: string;
+  course_id: string;
+  title: string;
+  description: string | null;
+  duration: number;
+  thumbnail: string | null;
+  video_url: string;
+  position: number;
+  is_published: boolean;
+  created_at: string;
+}
+
+export interface PDF {
+  id: string;
+  course_id: string;
+  title: string;
+  description: string | null;
+  file_url: string;
+  file_size: string;
+  position: number;
+  is_published: boolean;
+  created_at: string;
+}
+
+export interface LiveSession {
+  id: string;
+  course_id: string;
+  title: string;
+  description: string | null;
+  start_time: string;
+  duration: number;
+  tutor_id: string;
+  room_id: string | null;
+  status: 'scheduled' | 'live' | 'completed' | 'cancelled';
+  recording_url: string | null;
+  created_at: string;
+}
 
 interface CourseContextType {
   courses: Course[];
-  enrolledCourses: CourseEnrollment[];
+  enrolledCourses: Course[];
+  enrollments: Enrollment[];
   isLoading: boolean;
   error: string | null;
   fetchCourses: () => Promise<void>;
   fetchEnrolledCourses: () => Promise<void>;
   enrollInCourse: (courseId: string) => Promise<boolean>;
-  getCourseById: (id: string) => Course | undefined;
-  getCourse: (id: string) => Course | undefined;
-  getCourseVideos: (courseId: string) => Video[];
-  getCoursePDFs: (courseId: string) => PDFDocument[];
-  getCourseLiveSessions: (courseId: string) => LiveSession[];
+  getCourseById: (id: string) => Promise<Course | null>;
+  getCourseVideos: (courseId: string) => Promise<Video[]>;
+  getCoursePDFs: (courseId: string) => Promise<PDF[]>;
+  getCourseLiveSessions: (courseId: string) => Promise<LiveSession[]>;
   isEnrolled: (courseId: string) => boolean;
-  enrollCourse: (courseId: string) => Promise<boolean>;
 }
 
 const CourseContext = createContext<CourseContextType | undefined>(undefined);
 
 export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [courses, setCourses] = useState<Course[]>([]);
-  const [enrolledCourses, setEnrolledCourses] = useState<CourseEnrollment[]>([]);
-  const [videos, setVideos] = useState<Record<string, Video[]>>({});
-  const [pdfs, setPdfs] = useState<Record<string, PDFDocument[]>>({});
-  const [liveSessions, setLiveSessions] = useState<Record<string, LiveSession[]>>({});
+  const [enrolledCourses, setEnrolledCourses] = useState<Course[]>([]);
+  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const { isAuthenticated, user } = useAuth();
@@ -54,8 +119,33 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       setIsLoading(true);
       setError(null);
-      const data = await courseService.getAllCourses();
-      setCourses(data);
+      
+      const { data, error } = await supabase
+        .from('courses')
+        .select(`
+          *,
+          profiles:tutor_id (
+            full_name,
+            avatar_url
+          )
+        `)
+        .eq('is_published', true)
+        .eq('is_approved', true);
+      
+      if (error) throw error;
+      
+      // Transform data to match Course interface with instructor data
+      const formattedCourses = data.map(course => ({
+        ...course,
+        instructor: {
+          name: course.profiles?.full_name || 'Unknown Instructor',
+          profileImage: course.profiles?.avatar_url || undefined
+        },
+        rating: 4.5, // Placeholder for now, will implement actual ratings later
+        enrolledStudentCount: 10 // Placeholder, will implement actual count later
+      }));
+      
+      setCourses(formattedCourses);
     } catch (error: any) {
       console.error('Error fetching courses:', error);
       setError(error.message || 'Failed to fetch courses');
@@ -70,12 +160,52 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const fetchEnrolledCourses = async (): Promise<void> => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !user) return;
     
     try {
       setIsLoading(true);
-      const data = await courseService.getEnrolledCourses();
-      setEnrolledCourses(data);
+      
+      // Get enrollments for current user
+      const { data: enrollmentData, error: enrollmentError } = await supabase
+        .from('enrollments')
+        .select('*')
+        .eq('user_id', user.id);
+      
+      if (enrollmentError) throw enrollmentError;
+      setEnrollments(enrollmentData);
+      
+      if (enrollmentData.length === 0) {
+        setEnrolledCourses([]);
+        return;
+      }
+      
+      // Get courses for these enrollments
+      const courseIds = enrollmentData.map(e => e.course_id);
+      const { data: coursesData, error: coursesError } = await supabase
+        .from('courses')
+        .select(`
+          *,
+          profiles:tutor_id (
+            full_name,
+            avatar_url
+          )
+        `)
+        .in('id', courseIds);
+      
+      if (coursesError) throw coursesError;
+      
+      // Format courses
+      const formattedCourses = coursesData.map(course => ({
+        ...course,
+        instructor: {
+          name: course.profiles?.full_name || 'Unknown Instructor',
+          profileImage: course.profiles?.avatar_url || undefined
+        },
+        rating: 4.5, // Placeholder
+        enrolledStudentCount: 10 // Placeholder
+      }));
+      
+      setEnrolledCourses(formattedCourses);
     } catch (error: any) {
       console.error('Error fetching enrolled courses:', error);
       toast({
@@ -89,23 +219,60 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const enrollInCourse = async (courseId: string): Promise<boolean> => {
+    if (!isAuthenticated || !user) {
+      toast({
+        title: 'Authentication Required',
+        description: 'Please log in to enroll in courses.',
+        variant: 'destructive',
+      });
+      return false;
+    }
+    
     try {
       setIsLoading(true);
-      const enrollment = await courseService.enrollInCourse(courseId);
       
-      // Update enrolled courses
-      setEnrolledCourses(prev => [...prev, enrollment]);
+      // Check if already enrolled
+      const { data: existingEnrollment } = await supabase
+        .from('enrollments')
+        .select('id')
+        .eq('course_id', courseId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      if (existingEnrollment) {
+        toast({
+          title: 'Already Enrolled',
+          description: 'You are already enrolled in this course.',
+        });
+        return true;
+      }
+      
+      // Create enrollment
+      const { error } = await supabase
+        .from('enrollments')
+        .insert({
+          course_id: courseId,
+          user_id: user.id,
+          progress: 0,
+          status: 'active'
+        });
+      
+      if (error) throw error;
       
       toast({
         title: 'Enrolled successfully',
         description: 'You have successfully enrolled in this course.',
       });
+      
+      // Refresh enrolled courses
+      await fetchEnrolledCourses();
+      
       return true;
     } catch (error: any) {
       console.error('Error enrolling in course:', error);
       toast({
         title: 'Enrollment failed',
-        description: error.response?.data?.message || 'Failed to enroll in this course.',
+        description: error.message || 'Failed to enroll in this course.',
         variant: 'destructive',
       });
       return false;
@@ -114,81 +281,110 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  const getCourseById = (id: string): Course | undefined => {
-    return courses.find(course => course.id === id);
+  const getCourseById = async (id: string): Promise<Course | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('courses')
+        .select(`
+          *,
+          profiles:tutor_id (
+            full_name,
+            avatar_url
+          )
+        `)
+        .eq('id', id)
+        .single();
+      
+      if (error) throw error;
+      
+      if (!data) return null;
+      
+      return {
+        ...data,
+        instructor: {
+          name: data.profiles?.full_name || 'Unknown Instructor',
+          profileImage: data.profiles?.avatar_url || undefined
+        },
+        rating: 4.5, // Placeholder
+        enrolledStudentCount: 10 // Placeholder
+      };
+    } catch (error) {
+      console.error(`Error fetching course ${id}:`, error);
+      return null;
+    }
   };
 
-  // Modified to return actual course data, not a Promise
-  const getCourse = (id: string): Course | undefined => {
-    return courses.find(course => course.id === id);
-  };
-
-  // Modified to fetch video data and store it in state
-  const getCourseVideos = (courseId: string): Video[] => {
-    if (!videos[courseId]) {
-      // Fetch videos if not already in state
-      contentService.getVideosForCourse(courseId).then(data => {
-        setVideos(prev => ({ ...prev, [courseId]: data }));
-      }).catch(error => {
-        console.error(`Error getting videos for course ${courseId}:`, error);
-      });
+  const getCourseVideos = async (courseId: string): Promise<Video[]> => {
+    try {
+      const { data, error } = await supabase
+        .from('videos')
+        .select('*')
+        .eq('course_id', courseId)
+        .order('position', { ascending: true });
+      
+      if (error) throw error;
+      
+      return data || [];
+    } catch (error) {
+      console.error(`Error getting videos for course ${courseId}:`, error);
       return [];
     }
-    return videos[courseId];
   };
 
-  // Modified to fetch PDF data and store it in state
-  const getCoursePDFs = (courseId: string): PDFDocument[] => {
-    if (!pdfs[courseId]) {
-      // Fetch PDFs if not already in state
-      contentService.getPDFsForCourse(courseId).then(data => {
-        setPdfs(prev => ({ ...prev, [courseId]: data }));
-      }).catch(error => {
-        console.error(`Error getting PDFs for course ${courseId}:`, error);
-      });
+  const getCoursePDFs = async (courseId: string): Promise<PDF[]> => {
+    try {
+      const { data, error } = await supabase
+        .from('pdfs')
+        .select('*')
+        .eq('course_id', courseId)
+        .order('position', { ascending: true });
+      
+      if (error) throw error;
+      
+      return data || [];
+    } catch (error) {
+      console.error(`Error getting PDFs for course ${courseId}:`, error);
       return [];
     }
-    return pdfs[courseId];
   };
 
-  // Modified to fetch live sessions data and store it in state
-  const getCourseLiveSessions = (courseId: string): LiveSession[] => {
-    if (!liveSessions[courseId]) {
-      // Fetch live sessions if not already in state
-      contentService.getLiveSessionsForCourse(courseId).then(data => {
-        setLiveSessions(prev => ({ ...prev, [courseId]: data }));
-      }).catch(error => {
-        console.error(`Error getting live sessions for course ${courseId}:`, error);
-      });
+  const getCourseLiveSessions = async (courseId: string): Promise<LiveSession[]> => {
+    try {
+      const { data, error } = await supabase
+        .from('live_sessions')
+        .select('*')
+        .eq('course_id', courseId)
+        .order('start_time', { ascending: true });
+      
+      if (error) throw error;
+      
+      return data || [];
+    } catch (error) {
+      console.error(`Error getting live sessions for course ${courseId}:`, error);
       return [];
     }
-    return liveSessions[courseId];
   };
 
   const isEnrolled = (courseId: string): boolean => {
-    return enrolledCourses.some(enrollment => enrollment.courseId === courseId);
+    return enrollments.some(enrollment => enrollment.course_id === courseId);
   };
 
-  // Alias for enrollInCourse to match the CourseDetail needs
-  const enrollCourse = enrollInCourse;
-
   return (
-    <CourseContext.Provider 
+    <CourseContext.Provider
       value={{
         courses,
         enrolledCourses,
+        enrollments,
         isLoading,
         error,
         fetchCourses,
         fetchEnrolledCourses,
         enrollInCourse,
         getCourseById,
-        getCourse,
         getCourseVideos,
         getCoursePDFs,
         getCourseLiveSessions,
         isEnrolled,
-        enrollCourse,
       }}
     >
       {children}

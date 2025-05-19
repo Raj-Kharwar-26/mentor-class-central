@@ -14,6 +14,7 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import ProfilePage from "./pages/ProfilePage";
 import CoursesPage from "./pages/courses/CoursesPage";
 import CourseDetail from "./pages/courses/CourseDetail";
 
@@ -47,6 +48,16 @@ const App = () => (
                 <Route path="/register" element={<Register />} />
                 <Route path="/courses" element={<CoursesPage />} />
                 <Route path="/courses/:id" element={<CourseDetail />} />
+                
+                {/* Protected route for profile */}
+                <Route 
+                  path="/profile" 
+                  element={
+                    <ProtectedRoute>
+                      <ProfilePage />
+                    </ProtectedRoute>
+                  } 
+                />
                 
                 {/* Role-based dashboard routes */}
                 <Route 
