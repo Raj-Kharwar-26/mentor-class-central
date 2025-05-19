@@ -9,6 +9,7 @@ export interface Video {
   duration: number; // in seconds
   thumbnail: string;
   url: string;
+  videoUrl: string; // Added this property
   createdAt: string;
   viewCount: number;
   isPublished: boolean;
@@ -20,6 +21,7 @@ export interface PDFDocument {
   description: string;
   courseId: string;
   url: string;
+  fileSize: string; // Added this property
   createdAt: string;
   downloadCount: number;
   isPublished: boolean;
@@ -32,6 +34,7 @@ export interface LiveSession {
   courseId: string;
   courseTitle: string;
   tutorId: string;
+  startTime: string; // Changed from 'date' to 'startTime'
   date: string;
   duration: number; // in minutes
   status: 'scheduled' | 'live' | 'completed' | 'cancelled';
