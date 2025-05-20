@@ -9,7 +9,7 @@ import { useCourses } from '@/contexts/CourseContext';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 
 const AdminDashboard: React.FC = () => {
-  const { user } = useAuth();
+  const { profile } = useAuth();
   const { courses } = useCourses();
   
   // Mock data for platform stats
@@ -91,7 +91,7 @@ const AdminDashboard: React.FC = () => {
               <div>
                 <h1 className="text-2xl font-bold mb-2">Admin Dashboard</h1>
                 <p className="text-muted-foreground">
-                  Welcome back, {user?.profile.full_name}! Here's an overview of your platform.
+                  Welcome back, {profile?.full_name}! Here's an overview of your platform.
                 </p>
               </div>
               <div className="flex gap-2">

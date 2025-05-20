@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,8 +9,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCourses } from '@/contexts/CourseContext';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 
+// Define interfaces for type checking
+interface Enrollment {
+  courseId: string;
+  status: string;
+}
+
 const StudentDashboard: React.FC = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { courses, enrolledCourses } = useCourses();
   
   // Get user's enrolled courses
@@ -64,7 +71,7 @@ const StudentDashboard: React.FC = () => {
           <div className="bg-primary/10 rounded-lg p-6 mb-8">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
-                <h1 className="text-2xl font-bold mb-2">Welcome back, {user?.profile.full_name}!</h1>
+                <h1 className="text-2xl font-bold mb-2">Welcome back, {profile?.full_name}!</h1>
                 <p className="text-muted-foreground">
                   Continue your learning journey. You have {stats.upcomingLiveClasses} upcoming live classes this week.
                 </p>

@@ -7,11 +7,13 @@ import { Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
+  requiredRole?: UserRole;
   allowedRoles?: UserRole[];
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
   children,
+  requiredRole,
   allowedRoles
 }) => {
   const { isAuthenticated, profile, loading } = useAuth();
@@ -42,7 +44,9 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   // Check role-based access
-  if (allowedRoles && profile && !allowedRoles.includes(profile.role)) {
+  const rolesToCheck = requiredRole ? [requiredRole] : allowedRoles;
+  
+  if (rolesToCheck && profile && !rolesToCheck.includes(profile.role)) {
     // Redirect to appropriate dashboard or home based on role
     switch (profile.role) {
       case 'student':
