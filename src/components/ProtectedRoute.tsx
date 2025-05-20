@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserRole } from '@/contexts/AuthContext';
@@ -16,6 +16,15 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 }) => {
   const { isAuthenticated, profile, loading } = useAuth();
   const location = useLocation();
+  
+  useEffect(() => {
+    // Force a rerender if loading changes
+    console.log("Auth state loading:", loading);
+    console.log("Auth state authenticated:", isAuthenticated);
+    if (profile) {
+      console.log("Auth state profile role:", profile.role);
+    }
+  }, [loading, isAuthenticated, profile]);
 
   // Show loading state while checking authentication
   if (loading) {
