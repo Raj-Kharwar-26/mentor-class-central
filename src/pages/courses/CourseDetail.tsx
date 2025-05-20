@@ -1,78 +1,97 @@
-import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+
+import React, { useEffect, useState } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { 
+  Tabs, 
+  TabsContent, 
+  TabsList, 
+  TabsTrigger 
+} from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { Star } from 'lucide-react';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
+import { Badge } from '@/components/ui/badge';
+import { Star, Clock, Users, FileText, Video, Calendar, CheckCircle } from 'lucide-react';
+import { Course, Video, PDF, LiveSession, useCourses } from '@/contexts/CourseContext';
+import { useToast } from '@/components/ui/use-toast';
 import VideoPlayer from '@/components/VideoPlayer';
-import { useCourses } from '@/contexts/CourseContext';
-import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from "@/components/ui/use-toast";
 
 const CourseDetail: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
-  const { 
-    getCourse, 
-    getCourseVideos, 
-    getCoursePDFs, 
-    getCourseLiveSessions,
-    isEnrolled, 
-    enrollCourse 
-  } = useCourses();
-  const { isAuthenticated, user } = useAuth();
+  const { courseId } = useParams<{ courseId: string }>();
+  const { getCourseById, enrollInCourse, isEnrolled, getCourseVideos, getCoursePDFs, getCourseLiveSessions } = useCourses();
+  const [course, setCourse] = useState<Course | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [enrolling, setEnrolling] = useState<boolean>(false);
+  const [videos, setVideos] = useState<Video[]>([]);
+  const [pdfs, setPdfs] = useState<PDF[]>([]);
+  const [liveSessions, setLiveSessions] = useState<LiveSession[]>([]);
+  const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
   const { toast } = useToast();
-  const navigate = useNavigate();
-
-  const course = getCourse(id || '');
-  const videos = getCourseVideos(id || '');
-  const pdfs = getCoursePDFs(id || '');
-  const liveSessions = getCourseLiveSessions(id || '');
-
-  const [isEnrolling, setIsEnrolling] = useState(false);
-  const enrolled = isEnrolled(id || '');
-
-  if (!course) {
-    return (
-      <>
-        <Header />
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold mb-4">Course not found</h1>
-            <Button onClick={() => navigate('/courses')}>Back to Courses</Button>
-          </div>
-        </div>
-        <Footer />
-      </>
-    );
-  }
-
-  const handleEnroll = () => {
-    if (!isAuthenticated) {
-      toast({
-        title: "Authentication Required",
-        description: "Please login or register to enroll in this course.",
-        variant: "destructive",
-      });
-      navigate('/login');
-      return;
+  
+  useEffect(() => {
+    const fetchCourseDetails = async () => {
+      if (!courseId) return;
+      
+      setLoading(true);
+      try {
+        const courseData = await getCourseById(courseId);
+        if (courseData) {
+          setCourse(courseData);
+          
+          // Fetch course content
+          const videosData = await getCourseVideos(courseId);
+          const pdfsData = await getCoursePDFs(courseId);
+          const liveSessionsData = await getCourseLiveSessions(courseId);
+          
+          setVideos(videosData);
+          setPdfs(pdfsData);
+          setLiveSessions(liveSessionsData);
+          
+          // Set first video as selected if available
+          if (videosData.length > 0) {
+            setSelectedVideo(videosData[0]);
+          }
+        } else {
+          toast({
+            title: 'Course not found',
+            description: 'The requested course could not be found.',
+            variant: 'destructive',
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching course details:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load course details. Please try again.',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchCourseDetails();
+  }, [courseId, getCourseById, getCourseVideos, getCoursePDFs, getCourseLiveSessions, toast]);
+  
+  const handleEnrollment = async () => {
+    if (!courseId) return;
+    
+    setEnrolling(true);
+    try {
+      const success = await enrollInCourse(courseId);
+      if (success) {
+        // Refresh course data to update enrollment status
+        const updatedCourse = await getCourseById(courseId);
+        if (updatedCourse) {
+          setCourse(updatedCourse);
+        }
+      }
+    } catch (error) {
+      console.error('Error enrolling in course:', error);
+    } finally {
+      setEnrolling(false);
     }
-
-    setIsEnrolling(true);
-    setTimeout(() => {
-      enrollCourse(course.id);
-      setIsEnrolling(false);
-      toast({
-        title: "Enrollment Successful!",
-        description: `You have successfully enrolled in ${course.title}.`,
-      });
-    }, 1500);
   };
   
-  // Format price to INR
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -81,9 +100,20 @@ const CourseDetail: React.FC = () => {
     }).format(price);
   };
   
-  // Get subject badge color
+  const formatDate = (dateString: string) => {
+    const options: Intl.DateTimeFormatOptions = { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    };
+    return new Date(dateString).toLocaleDateString('en-US', options);
+  };
+  
   const getSubjectColor = (subject: string) => {
-    switch(subject) {
+    const lowerSubject = subject.toLowerCase();
+    switch(lowerSubject) {
       case 'mathematics':
         return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
       case 'physics':
@@ -96,449 +126,331 @@ const CourseDetail: React.FC = () => {
         return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
     }
   };
-
-  const formatDuration = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    return `${minutes} min`;
-  };
-
+  
+  if (loading) {
+    return (
+      <div className="container mx-auto py-8 flex justify-center items-center min-h-[60vh]">
+        <div className="flex flex-col items-center">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+          <p className="mt-4 text-muted-foreground">Loading course details...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!course) {
+    return (
+      <div className="container mx-auto py-8 text-center">
+        <h2 className="text-2xl font-bold mb-4">Course Not Found</h2>
+        <p className="mb-6">The course you're looking for doesn't exist or has been removed.</p>
+        <Link to="/courses">
+          <Button>Browse All Courses</Button>
+        </Link>
+      </div>
+    );
+  }
+  
   return (
-    <div className="flex flex-col min-h-screen">
-      <Header />
-      
-      {/* Course Header */}
-      <div className="bg-primary/10 py-8">
-        <div className="container px-4 md:px-6">
-          <div className="grid gap-6 lg:grid-cols-2 lg:gap-12 items-center">
-            <div>
-              <div className="flex flex-wrap gap-2 mb-4">
-                <Badge className={getSubjectColor(course.subject)}>
-                  {course.subject.charAt(0).toUpperCase() + course.subject.slice(1)}
-                </Badge>
-                <Badge variant="outline">Class {course.classGrade}</Badge>
-              </div>
-              <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl heading-gradient mb-4">
-                {course.title}
-              </h1>
-              <p className="text-muted-foreground text-lg mb-4">
-                {course.description}
-              </p>
-              <div className="flex items-center gap-4 mb-6">
-                <div className="flex items-center">
-                  <img 
-                    src={course.instructor.profileImage || 'https://i.pravatar.cc/150'} 
-                    alt={course.instructor.name}
-                    className="w-10 h-10 rounded-full border-2 border-white"
-                  />
-                  <div className="ml-2">
-                    <div className="font-medium">{course.instructor.name}</div>
-                    <div className="text-sm text-muted-foreground">Instructor</div>
-                  </div>
-                </div>
-                <div className="flex items-center">
-                  <div className="flex items-center bg-white dark:bg-gray-800 px-3 py-1 rounded-full shadow-sm">
-                    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400 mr-1" />
-                    <span className="font-medium">{course.rating}</span>
-                    <span className="text-xs text-muted-foreground ml-1">
-                      ({course.enrolledStudentCount} students)
-                    </span>
-                  </div>
-                </div>
-              </div>
-              {enrolled ? (
-                <div className="flex gap-4">
-                  <Button size="lg" variant="outline" disabled>
-                    Already Enrolled
-                  </Button>
-                  <Button size="lg">
-                    Continue Learning
-                  </Button>
-                </div>
+    <div className="container mx-auto py-8 px-4 md:px-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Course Info - Left Column */}
+        <div className="lg:col-span-2">
+          <h1 className="text-3xl font-bold mb-4">{course.title}</h1>
+          
+          <div className="flex flex-wrap gap-2 mb-4">
+            <Badge className={getSubjectColor(course.subject)}>
+              {course.subject}
+            </Badge>
+            {course.class_grade && (
+              <Badge variant="outline">
+                Class {course.class_grade}
+              </Badge>
+            )}
+          </div>
+          
+          <div className="flex items-center text-sm text-muted-foreground mb-6">
+            <div className="flex items-center mr-4">
+              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400 mr-1" />
+              <span>{course.rating}</span>
+              <span className="ml-1">({course.enrolledStudentCount} students)</span>
+            </div>
+            <div className="flex items-center mr-4">
+              <Clock className="h-4 w-4 mr-1" />
+              <span>{course.duration}</span>
+            </div>
+            <div className="flex items-center">
+              <Users className="h-4 w-4 mr-1" />
+              <span>By {course.instructor?.name}</span>
+            </div>
+          </div>
+          
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold mb-2">About This Course</h2>
+            <p className="text-muted-foreground whitespace-pre-line">{course.description}</p>
+          </div>
+          
+          {/* Course Content Tabs */}
+          <Tabs defaultValue="videos" className="mb-8">
+            <TabsList className="mb-4">
+              <TabsTrigger value="videos" className="flex items-center">
+                <Video className="h-4 w-4 mr-2" />
+                Videos {videos.length > 0 && <span className="ml-1">({videos.length})</span>}
+              </TabsTrigger>
+              <TabsTrigger value="materials" className="flex items-center">
+                <FileText className="h-4 w-4 mr-2" />
+                Materials {pdfs.length > 0 && <span className="ml-1">({pdfs.length})</span>}
+              </TabsTrigger>
+              <TabsTrigger value="live-sessions" className="flex items-center">
+                <Calendar className="h-4 w-4 mr-2" />
+                Live Sessions {liveSessions.length > 0 && <span className="ml-1">({liveSessions.length})</span>}
+              </TabsTrigger>
+            </TabsList>
+            
+            {/* Videos Content */}
+            <TabsContent value="videos" className="space-y-4">
+              {videos.length === 0 ? (
+                <p className="text-muted-foreground">No videos available for this course yet.</p>
               ) : (
-                <div className="flex gap-4">
-                  <div className="text-2xl font-bold">
-                    {formatPrice(course.price)}
+                <div className="space-y-4">
+                  {videos.map((video) => (
+                    <Card key={video.id} className={`cursor-pointer hover:border-primary transition-colors ${selectedVideo?.id === video.id ? 'border-primary' : ''}`}
+                      onClick={() => setSelectedVideo(video)}>
+                      <CardContent className="p-4 flex justify-between items-center">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 flex-shrink-0 bg-muted rounded-md flex items-center justify-center">
+                            <Video className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <h3 className="font-medium">{video.title}</h3>
+                            <p className="text-sm text-muted-foreground">
+                              {Math.floor(video.duration / 60)}min {video.duration % 60}sec
+                            </p>
+                          </div>
+                        </div>
+                        {selectedVideo?.id === video.id && (
+                          <CheckCircle className="h-5 w-5 text-primary" />
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+              
+              {/* Video Player for Selected Video */}
+              {selectedVideo && (
+                <div className="mt-6">
+                  <h3 className="font-semibold text-lg mb-2">{selectedVideo.title}</h3>
+                  <div className="aspect-video bg-black rounded-lg overflow-hidden">
+                    <VideoPlayer src={selectedVideo.video_url} poster={selectedVideo.thumbnail || undefined} />
                   </div>
-                  <Button size="lg" onClick={handleEnroll} disabled={isEnrolling}>
-                    {isEnrolling ? 'Processing...' : 'Enroll Now'}
+                  {selectedVideo.description && (
+                    <p className="mt-3 text-muted-foreground">{selectedVideo.description}</p>
+                  )}
+                </div>
+              )}
+              
+              {/* Showing limited videos if not enrolled */}
+              {!isEnrolled(course.id) && videos.length > 2 && (
+                <div className="mt-6 p-4 border rounded-lg bg-muted/50">
+                  <h3 className="font-semibold">Enroll to access all {videos.length} videos</h3>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    You're viewing the preview content. Enroll in this course to access all materials.
+                  </p>
+                  <Button onClick={handleEnrollment} disabled={enrolling}>
+                    {enrolling ? 'Enrolling...' : 'Enroll Now'}
                   </Button>
                 </div>
               )}
-            </div>
-            <div>
-              <div className="relative rounded-lg overflow-hidden shadow-lg">
-                <img
-                  src={course.thumbnail}
-                  alt={course.title}
-                  className="w-full aspect-video object-cover"
-                />
-                <div className="absolute inset-0 bg-black/30 flex flex-col justify-center items-center text-white">
-                  <div className="text-center">
-                    <div className="text-4xl font-bold mb-2">{course.contentCount.videos + course.contentCount.pdfs + course.contentCount.liveClasses}</div>
-                    <div className="text-lg font-medium">Total Learning Resources</div>
-                  </div>
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-4 mt-4">
-                <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-                  <div className="font-bold text-lg">{course.contentCount.videos}</div>
-                  <div className="text-xs text-muted-foreground">Videos</div>
-                </div>
-                <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-                  <div className="font-bold text-lg">{course.contentCount.pdfs}</div>
-                  <div className="text-xs text-muted-foreground">PDFs</div>
-                </div>
-                <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-                  <div className="font-bold text-lg">{course.contentCount.liveClasses}</div>
-                  <div className="text-xs text-muted-foreground">Live Classes</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      {/* Course Content Tabs */}
-      <section className="py-12">
-        <div className="container px-4 md:px-6">
-          <Tabs defaultValue="overview" className="space-y-4">
-            <TabsList className="w-full max-w-md mx-auto grid grid-cols-4">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="videos">Videos</TabsTrigger>
-              <TabsTrigger value="materials">Materials</TabsTrigger>
-              <TabsTrigger value="live">Live Classes</TabsTrigger>
-            </TabsList>
+            </TabsContent>
             
-            {/* Overview Tab */}
-            <TabsContent value="overview" className="space-y-6">
-              <Card>
-                <CardContent className="p-6">
-                  <h2 className="text-2xl font-bold mb-4">Course Overview</h2>
-                  <p className="text-muted-foreground leading-relaxed mb-6">
-                    This comprehensive course is designed to help students master all aspects of {course.subject} 
-                    for Class {course.classGrade}. The curriculum follows the latest CBSE guidelines and also 
-                    covers topics relevant to competitive exams.
+            {/* Materials Content */}
+            <TabsContent value="materials" className="space-y-4">
+              {pdfs.length === 0 ? (
+                <p className="text-muted-foreground">No study materials available for this course yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {pdfs.map((pdf) => (
+                    <Card key={pdf.id} className="hover:border-primary transition-colors">
+                      <CardContent className="p-4 flex justify-between items-center">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 flex-shrink-0 bg-muted rounded-md flex items-center justify-center">
+                            <FileText className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <h3 className="font-medium">{pdf.title}</h3>
+                            <p className="text-sm text-muted-foreground">
+                              {pdf.file_size}
+                            </p>
+                          </div>
+                        </div>
+                        <Button variant="outline" size="sm" asChild>
+                          <a href={pdf.file_url} target="_blank" rel="noreferrer">
+                            Download
+                          </a>
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+              
+              {/* Showing limited PDFs if not enrolled */}
+              {!isEnrolled(course.id) && pdfs.length > 1 && (
+                <div className="mt-4 p-4 border rounded-lg bg-muted/50">
+                  <h3 className="font-semibold">Enroll to access all {pdfs.length} materials</h3>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    You're viewing the preview content. Enroll in this course to access all materials.
                   </p>
-                  
-                  <h3 className="text-xl font-semibold mb-2">What You'll Learn</h3>
-                  <div className="grid gap-2 md:grid-cols-2 mb-6">
-                    <div className="flex items-center">
-                      <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span>Complete Class {course.classGrade} {course.subject} syllabus</span>
-                    </div>
-                    <div className="flex items-center">
-                      <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span>Problem-solving techniques</span>
-                    </div>
-                    <div className="flex items-center">
-                      <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span>Board exam preparation strategies</span>
-                    </div>
-                    <div className="flex items-center">
-                      <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span>Competitive exam prep modules</span>
-                    </div>
-                  </div>
-                  
-                  <h3 className="text-xl font-semibold mb-2">Requirements</h3>
-                  <div className="space-y-1 mb-6">
-                    <div className="flex items-start">
-                      <svg className="h-5 w-5 text-primary mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <span>Basic understanding of Class {parseInt(course.classGrade) - 1} concepts</span>
-                    </div>
-                    <div className="flex items-start">
-                      <svg className="h-5 w-5 text-primary mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <span>Internet connection for streaming videos and attending live classes</span>
-                    </div>
-                    <div className="flex items-start">
-                      <svg className="h-5 w-5 text-primary mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <span>Basic notebook, stationery supplies for working through problems</span>
-                    </div>
-                  </div>
-                  
-                  <Separator className="my-6" />
-                  
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Last updated</span>
-                      <span className="text-sm font-medium">{new Date(course.updatedAt).toLocaleDateString()}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Language</span>
-                      <span className="text-sm font-medium">English, Hindi</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Access</span>
-                      <span className="text-sm font-medium">1 Year</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  <Button onClick={handleEnrollment} disabled={enrolling}>
+                    {enrolling ? 'Enrolling...' : 'Enroll Now'}
+                  </Button>
+                </div>
+              )}
             </TabsContent>
             
-            {/* Videos Tab */}
-            <TabsContent value="videos" className="space-y-6">
-              <Card>
-                <CardContent className="p-6">
-                  <h2 className="text-2xl font-bold mb-6">Course Videos</h2>
-                  
-                  {videos.length > 0 ? (
-                    <div className="space-y-4">
-                      {enrolled ? (
-                        <>
-                          <div className="mb-8">
-                            <h3 className="text-xl font-semibold mb-4">Featured Video</h3>
-                            <VideoPlayer 
-                              videoUrl={videos[0].videoUrl}
-                              title={videos[0].title}
-                              thumbnailUrl={videos[0].thumbnail}
-                            />
-                          </div>
-                          <div className="space-y-4">
-                            <h3 className="text-xl font-semibold mb-2">All Videos</h3>
-                            {videos.map((video) => (
-                              <div 
-                                key={video.id} 
-                                className="flex gap-4 p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
-                              >
-                                <div className="w-40 h-24 bg-gray-200 rounded-md overflow-hidden flex-shrink-0">
-                                  <img 
-                                    src={video.thumbnail} 
-                                    alt={video.title}
-                                    className="w-full h-full object-cover"
-                                  />
-                                </div>
-                                <div className="flex-grow">
-                                  <h4 className="font-medium mb-1">{video.title}</h4>
-                                  <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
-                                    {video.description}
-                                  </p>
-                                  <div className="text-xs text-muted-foreground">
-                                    {formatDuration(video.duration)} • {new Date(video.createdAt).toLocaleDateString()}
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </>
-                      ) : (
-                        <div className="space-y-6">
-                          <div className="bg-primary/5 border border-primary/20 rounded-lg p-6 text-center">
-                            <h3 className="text-xl font-semibold mb-2">Enroll to Access Videos</h3>
-                            <p className="text-muted-foreground mb-4">
-                              This course includes {videos.length} high-quality video lectures. Enroll to start watching.
-                            </p>
-                            <Button onClick={handleEnroll} disabled={isEnrolling}>
-                              {isEnrolling ? 'Processing...' : 'Enroll Now'}
-                            </Button>
-                          </div>
-                          
-                          <div className="space-y-3">
-                            <h3 className="text-xl font-semibold">Video Preview</h3>
-                            <div className="rounded-lg border p-4">
-                              <div className="flex gap-3">
-                                <div className="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center">
-                                  1
-                                </div>
-                                <div>
-                                  <h4 className="font-medium">{videos[0].title}</h4>
-                                  <p className="text-sm text-muted-foreground">{formatDuration(videos[0].duration)}</p>
-                                </div>
-                              </div>
-                            </div>
-                            
-                            {videos.slice(1).map((video, index) => (
-                              <div key={video.id} className="rounded-lg border p-4 bg-gray-50 dark:bg-gray-900">
-                                <div className="flex gap-3 opacity-60">
-                                  <div className="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center">
-                                    {index + 2}
-                                  </div>
-                                  <div>
-                                    <h4 className="font-medium">{video.title}</h4>
-                                    <p className="text-sm text-muted-foreground">{formatDuration(video.duration)} (Locked)</p>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-center py-12">
-                      <p className="text-muted-foreground">No videos available for this course yet.</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-            
-            {/* Materials Tab */}
-            <TabsContent value="materials" className="space-y-6">
-              <Card>
-                <CardContent className="p-6">
-                  <h2 className="text-2xl font-bold mb-6">Study Materials</h2>
-                  
-                  {pdfs.length > 0 ? (
-                    <div className="space-y-4">
-                      {enrolled ? (
-                        <div className="space-y-4">
-                          {pdfs.map((pdf) => (
-                            <div 
-                              key={pdf.id} 
-                              className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className="p-2 bg-red-100 text-red-700 rounded">
-                                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                                  </svg>
-                                </div>
-                                <div>
-                                  <h4 className="font-medium">{pdf.title}</h4>
-                                  <p className="text-sm text-muted-foreground">{pdf.fileSize}</p>
-                                </div>
-                              </div>
-                              <Button variant="outline" size="sm">
-                                Download
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="bg-primary/5 border border-primary/20 rounded-lg p-6 text-center">
-                          <h3 className="text-xl font-semibold mb-2">Enroll to Access Study Materials</h3>
-                          <p className="text-muted-foreground mb-4">
-                            This course includes {pdfs.length} downloadable PDF resources. Enroll to access them.
-                          </p>
-                          <Button onClick={handleEnroll} disabled={isEnrolling}>
-                            {isEnrolling ? 'Processing...' : 'Enroll Now'}
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-center py-12">
-                      <p className="text-muted-foreground">No study materials available for this course yet.</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-            
-            {/* Live Classes Tab */}
-            <TabsContent value="live" className="space-y-6">
-              <Card>
-                <CardContent className="p-6">
-                  <h2 className="text-2xl font-bold mb-6">Live Classes</h2>
-                  
-                  {liveSessions.length > 0 ? (
-                    <div className="space-y-4">
-                      {enrolled ? (
-                        <div className="space-y-6">
-                          {liveSessions.map((session) => {
-                            const sessionDate = new Date(session.startTime);
-                            const formattedDate = sessionDate.toLocaleDateString('en-US', {
-                              weekday: 'long',
-                              day: 'numeric',
-                              month: 'long',
-                              year: 'numeric',
-                            });
-                            
-                            const formattedTime = sessionDate.toLocaleTimeString('en-US', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            });
-                            
-                            return (
-                              <div 
-                                key={session.id} 
-                                className="border rounded-lg overflow-hidden"
-                              >
-                                <div className="p-5 flex gap-4 items-center justify-between">
-                                  <div className="flex gap-4 items-center">
-                                    {session.status === 'live' ? (
-                                      <Badge className="bg-red-500 text-white">LIVE NOW</Badge>
-                                    ) : (
-                                      <div className="text-center min-w-[60px]">
-                                        <div className="text-2xl font-bold">{sessionDate.getDate()}</div>
-                                        <div className="text-xs text-muted-foreground">
-                                          {sessionDate.toLocaleString('default', { month: 'short' })}
-                                        </div>
-                                      </div>
-                                    )}
-                                    
-                                    <div>
-                                      <h4 className="font-medium">{session.title}</h4>
-                                      <p className="text-sm text-muted-foreground">
-                                        {formattedDate} at {formattedTime} • {session.duration} minutes
-                                      </p>
-                                    </div>
-                                  </div>
-                                  
-                                  <Button 
-                                    variant={session.status === 'live' ? "default" : "outline"}
-                                    disabled={session.status === 'scheduled'}
-                                  >
-                                    {session.status === 'live' ? 'Join Now' : 
-                                     session.status === 'scheduled' ? 'Coming Soon' : 'Watch Recording'}
-                                  </Button>
-                                </div>
-                                <div className="p-4 bg-gray-50 dark:bg-gray-900 border-t">
-                                  <p className="text-sm">{session.description}</p>
-                                </div>
-                              </div>
-                            );
-                          })}
-                          
-                          <div className="text-center">
+            {/* Live Sessions Content */}
+            <TabsContent value="live-sessions" className="space-y-4">
+              {liveSessions.length === 0 ? (
+                <p className="text-muted-foreground">No live sessions scheduled for this course yet.</p>
+              ) : (
+                <div className="space-y-4">
+                  {liveSessions.map((session) => (
+                    <Card key={session.id} className="hover:border-primary transition-colors">
+                      <CardContent className="p-4">
+                        <div className="flex flex-col md:flex-row md:justify-between md:items-center">
+                          <div>
+                            <h3 className="font-medium text-lg">{session.title}</h3>
                             <p className="text-sm text-muted-foreground mb-2">
-                              You'll receive notifications before each live session
+                              {formatDate(session.start_time)} · {session.duration} minutes
                             </p>
-                            <Button variant="outline" size="sm">
-                              Add to Calendar
-                            </Button>
+                            {session.description && (
+                              <p className="text-sm mb-3">{session.description}</p>
+                            )}
+                          </div>
+                          
+                          <div className="mt-3 md:mt-0 md:ml-4 flex items-center">
+                            <Badge className={`mr-3 ${
+                              session.status === 'live' ? 'bg-red-100 text-red-800' :
+                              session.status === 'scheduled' ? 'bg-blue-100 text-blue-800' :
+                              session.status === 'completed' ? 'bg-green-100 text-green-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {session.status.charAt(0).toUpperCase() + session.status.slice(1)}
+                            </Badge>
+                            
+                            {session.status === 'live' && (
+                              <Button size="sm">
+                                Join Now
+                              </Button>
+                            )}
+                            {session.status === 'scheduled' && (
+                              <Button variant="outline" size="sm">
+                                Set Reminder
+                              </Button>
+                            )}
+                            {session.status === 'completed' && session.recording_url && (
+                              <Button variant="outline" size="sm" asChild>
+                                <a href={session.recording_url} target="_blank" rel="noreferrer">
+                                  Watch Recording
+                                </a>
+                              </Button>
+                            )}
                           </div>
                         </div>
-                      ) : (
-                        <div className="bg-primary/5 border border-primary/20 rounded-lg p-6 text-center">
-                          <h3 className="text-xl font-semibold mb-2">Enroll to Join Live Classes</h3>
-                          <p className="text-muted-foreground mb-4">
-                            This course includes {liveSessions.length} scheduled live sessions. Enroll to attend.
-                          </p>
-                          <Button onClick={handleEnroll} disabled={isEnrolling}>
-                            {isEnrolling ? 'Processing...' : 'Enroll Now'}
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-center py-12">
-                      <p className="text-muted-foreground">No live sessions scheduled for this course yet.</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+              
+              {/* Showing limited info if not enrolled */}
+              {!isEnrolled(course.id) && liveSessions.length > 0 && (
+                <div className="mt-4 p-4 border rounded-lg bg-muted/50">
+                  <h3 className="font-semibold">Enroll to access live sessions</h3>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    You can view the schedule, but you need to enroll to join the live sessions.
+                  </p>
+                  <Button onClick={handleEnrollment} disabled={enrolling}>
+                    {enrolling ? 'Enrolling...' : 'Enroll Now'}
+                  </Button>
+                </div>
+              )}
             </TabsContent>
           </Tabs>
         </div>
-      </section>
-      
-      <Footer />
+        
+        {/* Enrollment Card - Right Column */}
+        <div className="lg:col-span-1">
+          <Card className="sticky top-24">
+            <CardContent className="p-6">
+              <div className="relative aspect-video mb-4 rounded-lg overflow-hidden">
+                <img 
+                  src={course.thumbnail || 'https://placehold.co/600x400?text=Course'} 
+                  alt={course.title}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              
+              <div className="mb-6">
+                <div className="text-3xl font-bold mb-3">
+                  {formatPrice(course.price)}
+                </div>
+                
+                {isEnrolled(course.id) ? (
+                  <div className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300 p-3 rounded-md flex items-center mb-4">
+                    <CheckCircle className="h-5 w-5 mr-2" />
+                    <span>You are enrolled in this course</span>
+                  </div>
+                ) : (
+                  <Button 
+                    className="w-full mb-3" 
+                    size="lg"
+                    onClick={handleEnrollment}
+                    disabled={enrolling}
+                  >
+                    {enrolling ? 'Enrolling...' : 'Enroll Now'}
+                  </Button>
+                )}
+                
+                <p className="text-center text-sm text-muted-foreground">
+                  Access to all course materials
+                </p>
+              </div>
+              
+              <div className="space-y-3">
+                <h3 className="font-semibold">This course includes:</h3>
+                <div className="flex items-start space-x-3">
+                  <Video className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="font-medium">{videos.length} videos</p>
+                    <p className="text-sm text-muted-foreground">
+                      {course.duration} of content
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="font-medium">{pdfs.length} downloadable resources</p>
+                    <p className="text-sm text-muted-foreground">
+                      PDFs, notes, and assignments
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="font-medium">{liveSessions.length} live sessions</p>
+                    <p className="text-sm text-muted-foreground">
+                      Interactive classes with the instructor
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 };

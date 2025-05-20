@@ -25,6 +25,11 @@ export interface Course {
   };
   rating?: number;
   enrolledStudentCount?: number;
+  contentCount?: {
+    videos: number;
+    pdfs: number;
+    liveClasses: number;
+  };
 }
 
 export interface Enrollment {
@@ -172,15 +177,22 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         .eq('user_id', user.id);
       
       if (enrollmentError) throw enrollmentError;
-      setEnrollments(enrollmentData);
       
-      if (enrollmentData.length === 0) {
+      // Type cast to ensure status is compatible with our Enrollment type
+      const typedEnrollments: Enrollment[] = enrollmentData.map(e => ({
+        ...e,
+        status: e.status as 'active' | 'completed' | 'cancelled'
+      }));
+      
+      setEnrollments(typedEnrollments);
+      
+      if (typedEnrollments.length === 0) {
         setEnrolledCourses([]);
         return;
       }
       
       // Get courses for these enrollments
-      const courseIds = enrollmentData.map(e => e.course_id);
+      const courseIds = typedEnrollments.map(e => e.course_id);
       const { data: coursesData, error: coursesError } = await supabase
         .from('courses')
         .select(`
@@ -358,7 +370,13 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       
       if (error) throw error;
       
-      return data || [];
+      // Type cast to ensure status is compatible with our LiveSession type
+      const typedSessions: LiveSession[] = data?.map(session => ({
+        ...session,
+        status: session.status as 'scheduled' | 'live' | 'completed' | 'cancelled'
+      })) || [];
+      
+      return typedSessions;
     } catch (error) {
       console.error(`Error getting live sessions for course ${courseId}:`, error);
       return [];

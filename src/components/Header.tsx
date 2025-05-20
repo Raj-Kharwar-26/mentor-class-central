@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 
 const Header: React.FC = () => {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, profile, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -33,9 +33,9 @@ const Header: React.FC = () => {
 
   // Route links based on user role
   const getDashboardLink = () => {
-    if (!user) return '/login';
+    if (!profile) return '/login';
     
-    switch (user.role) {
+    switch (profile.role) {
       case 'student':
         return '/student';
       case 'tutor':
@@ -90,12 +90,12 @@ const Header: React.FC = () => {
 
         {/* Auth buttons or user menu */}
         <div className="flex items-center gap-2">
-          {isAuthenticated ? (
+          {isAuthenticated && profile ? (
             <DropdownMenu>
               <DropdownMenuTrigger className="outline-none">
                 <Avatar className="cursor-pointer border border-gray-200 hover:border-primary transition-colors">
-                  <AvatarImage src={user?.profileImage} alt={user?.name || 'User'} />
-                  <AvatarFallback>{user ? getInitials(user.name) : 'U'}</AvatarFallback>
+                  <AvatarImage src={profile.avatar_url || undefined} alt={profile.full_name || 'User'} />
+                  <AvatarFallback>{profile.full_name ? getInitials(profile.full_name) : 'U'}</AvatarFallback>
                 </Avatar>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">

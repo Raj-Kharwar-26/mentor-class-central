@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -92,7 +91,7 @@ const AdminDashboard: React.FC = () => {
               <div>
                 <h1 className="text-2xl font-bold mb-2">Admin Dashboard</h1>
                 <p className="text-muted-foreground">
-                  Welcome back, {user?.name}! Here's an overview of your platform.
+                  Welcome back, {user?.profile.full_name}! Here's an overview of your platform.
                 </p>
               </div>
               <div className="flex gap-2">
@@ -266,7 +265,7 @@ const AdminDashboard: React.FC = () => {
                             <tr key={course.id} className="border-b">
                               <td className="p-2">{course.title}</td>
                               <td className="p-2 capitalize">{course.subject}</td>
-                              <td className="p-2">{course.classGrade}</td>
+                              <td className="p-2">{course.class_grade}</td>
                               <td className="p-2">{course.instructor.name}</td>
                               <td className="p-2">{course.enrolledStudentCount}</td>
                               <td className="p-2 text-right">

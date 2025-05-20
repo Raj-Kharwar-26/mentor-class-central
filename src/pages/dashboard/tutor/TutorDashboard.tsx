@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,7 +9,7 @@ import { useCourses } from '@/contexts/CourseContext';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 
 const TutorDashboard: React.FC = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { courses } = useCourses();
   
   // For demo, assume the tutor teaches all courses
@@ -112,7 +111,7 @@ const TutorDashboard: React.FC = () => {
           <div className="bg-primary/10 rounded-lg p-6 mb-8">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
-                <h1 className="text-2xl font-bold mb-2">Welcome, {user?.name}!</h1>
+                <h1 className="text-2xl font-bold mb-2">Welcome, {profile.full_name}!</h1>
                 <p className="text-muted-foreground">
                   You have {stats.upcomingLiveClasses} upcoming live classes and {stats.totalStudents} students across your courses.
                 </p>
@@ -261,7 +260,7 @@ const TutorDashboard: React.FC = () => {
                           className="w-full h-full object-cover"
                         />
                         <div className="absolute bottom-2 left-2">
-                          <Badge className="bg-black/70 text-white border-0">Class {course.classGrade}</Badge>
+                          <Badge className="bg-black/70 text-white border-0">Class {course.class_grade}</Badge>
                         </div>
                         <div className="absolute top-2 right-2">
                           <Badge variant="outline" className="bg-white dark:bg-gray-800 border-0">

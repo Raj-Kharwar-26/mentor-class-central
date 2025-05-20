@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -65,7 +64,7 @@ const StudentDashboard: React.FC = () => {
           <div className="bg-primary/10 rounded-lg p-6 mb-8">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
-                <h1 className="text-2xl font-bold mb-2">Welcome back, {user?.name}!</h1>
+                <h1 className="text-2xl font-bold mb-2">Welcome back, {user?.profile.full_name}!</h1>
                 <p className="text-muted-foreground">
                   Continue your learning journey. You have {stats.upcomingLiveClasses} upcoming live classes this week.
                 </p>
@@ -127,7 +126,7 @@ const StudentDashboard: React.FC = () => {
                       className="w-full h-full object-cover"
                     />
                     <div className="absolute bottom-2 left-2">
-                      <Badge className="bg-black/70 text-white border-0">Class {course.classGrade}</Badge>
+                      <Badge className="bg-black/70 text-white border-0">Class {course.class_grade}</Badge>
                     </div>
                   </div>
                   <CardHeader className="pb-2">
