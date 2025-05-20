@@ -10,8 +10,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Star, Clock, Users, FileText, Video, Calendar, CheckCircle } from 'lucide-react';
-import { Course, Video, PDF, LiveSession, useCourses } from '@/contexts/CourseContext';
+import { Star, Clock, Users, FileText, Video as VideoIcon, Calendar, CheckCircle } from 'lucide-react';
+import { Course, LiveSession, PDF, VideoContent, useCourses } from '@/contexts/CourseContext';
 import { useToast } from '@/components/ui/use-toast';
 import VideoPlayer from '@/components/VideoPlayer';
 
@@ -21,10 +21,10 @@ const CourseDetail: React.FC = () => {
   const [course, setCourse] = useState<Course | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [enrolling, setEnrolling] = useState<boolean>(false);
-  const [videos, setVideos] = useState<Video[]>([]);
+  const [videos, setVideos] = useState<VideoContent[]>([]);
   const [pdfs, setPdfs] = useState<PDF[]>([]);
   const [liveSessions, setLiveSessions] = useState<LiveSession[]>([]);
-  const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
+  const [selectedVideo, setSelectedVideo] = useState<VideoContent | null>(null);
   const { toast } = useToast();
   
   useEffect(() => {
@@ -193,7 +193,7 @@ const CourseDetail: React.FC = () => {
           <Tabs defaultValue="videos" className="mb-8">
             <TabsList className="mb-4">
               <TabsTrigger value="videos" className="flex items-center">
-                <Video className="h-4 w-4 mr-2" />
+                <VideoIcon className="h-4 w-4 mr-2" />
                 Videos {videos.length > 0 && <span className="ml-1">({videos.length})</span>}
               </TabsTrigger>
               <TabsTrigger value="materials" className="flex items-center">
@@ -218,7 +218,7 @@ const CourseDetail: React.FC = () => {
                       <CardContent className="p-4 flex justify-between items-center">
                         <div className="flex items-center space-x-3">
                           <div className="w-10 h-10 flex-shrink-0 bg-muted rounded-md flex items-center justify-center">
-                            <Video className="h-5 w-5" />
+                            <VideoIcon className="h-5 w-5" />
                           </div>
                           <div>
                             <h3 className="font-medium">{video.title}</h3>
@@ -241,7 +241,7 @@ const CourseDetail: React.FC = () => {
                 <div className="mt-6">
                   <h3 className="font-semibold text-lg mb-2">{selectedVideo.title}</h3>
                   <div className="aspect-video bg-black rounded-lg overflow-hidden">
-                    <VideoPlayer src={selectedVideo.video_url} poster={selectedVideo.thumbnail || undefined} />
+                    <VideoPlayer videoUrl={selectedVideo.video_url} thumbnail={selectedVideo.thumbnail || undefined} />
                   </div>
                   {selectedVideo.description && (
                     <p className="mt-3 text-muted-foreground">{selectedVideo.description}</p>
@@ -420,7 +420,7 @@ const CourseDetail: React.FC = () => {
               <div className="space-y-3">
                 <h3 className="font-semibold">This course includes:</h3>
                 <div className="flex items-start space-x-3">
-                  <Video className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <VideoIcon className="h-5 w-5 text-muted-foreground mt-0.5" />
                   <div>
                     <p className="font-medium">{videos.length} videos</p>
                     <p className="text-sm text-muted-foreground">

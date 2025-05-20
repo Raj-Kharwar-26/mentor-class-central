@@ -42,7 +42,7 @@ export interface Enrollment {
   completion_date: string | null;
 }
 
-export interface Video {
+export interface VideoContent {
   id: string;
   course_id: string;
   title: string;
@@ -91,7 +91,7 @@ interface CourseContextType {
   fetchEnrolledCourses: () => Promise<void>;
   enrollInCourse: (courseId: string) => Promise<boolean>;
   getCourseById: (id: string) => Promise<Course | null>;
-  getCourseVideos: (courseId: string) => Promise<Video[]>;
+  getCourseVideos: (courseId: string) => Promise<VideoContent[]>;
   getCoursePDFs: (courseId: string) => Promise<PDF[]>;
   getCourseLiveSessions: (courseId: string) => Promise<LiveSession[]>;
   isEnrolled: (courseId: string) => boolean;
@@ -326,7 +326,7 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  const getCourseVideos = async (courseId: string): Promise<Video[]> => {
+  const getCourseVideos = async (courseId: string): Promise<VideoContent[]> => {
     try {
       const { data, error } = await supabase
         .from('videos')

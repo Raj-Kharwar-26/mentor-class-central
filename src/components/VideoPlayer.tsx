@@ -1,65 +1,249 @@
 
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 interface VideoPlayerProps {
   videoUrl: string;
-  title: string;
-  thumbnailUrl?: string;
+  thumbnail?: string;
+  autoPlay?: boolean;
 }
 
-const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, title, thumbnailUrl }) => {
+const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, thumbnail, autoPlay = false }) => {
+  const [isPlaying, setIsPlaying] = useState<boolean>(autoPlay);
+  const [progress, setProgress] = useState<number>(0);
+  const [duration, setDuration] = useState<number>(0);
+  const [volume, setVolume] = useState<number>(1);
+  const [showControls, setShowControls] = useState<boolean>(true);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Initialize video
+  useEffect(() => {
+    const videoElement = videoRef.current;
+    if (videoElement) {
+      videoElement.addEventListener('loadedmetadata', () => {
+        setDuration(videoElement.duration);
+      });
+      
+      videoElement.addEventListener('timeupdate', () => {
+        setProgress(videoElement.currentTime);
+      });
+      
+      videoElement.addEventListener('ended', () => {
+        setIsPlaying(false);
+      });
+      
+      return () => {
+        videoElement.removeEventListener('loadedmetadata', () => {});
+        videoElement.removeEventListener('timeupdate', () => {});
+        videoElement.removeEventListener('ended', () => {});
+      };
+    }
+  }, []);
+  
+  // Update video when URL changes
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.load();
+      setProgress(0);
+      
+      if (autoPlay) {
+        playVideo();
+      }
+    }
+  }, [videoUrl, autoPlay]);
+  
+  // Auto-hide controls after inactivity
+  useEffect(() => {
+    const hideControls = () => {
+      if (isPlaying) {
+        setShowControls(false);
+      }
+    };
+    
+    if (controlsTimeoutRef.current) {
+      clearTimeout(controlsTimeoutRef.current);
+    }
+    
+    if (showControls && isPlaying) {
+      controlsTimeoutRef.current = setTimeout(hideControls, 3000);
+    }
+    
+    return () => {
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+      }
+    };
+  }, [showControls, isPlaying]);
+  
+  const playVideo = () => {
+    const video = videoRef.current;
+    if (video) {
+      video.play();
+      setIsPlaying(true);
+    }
+  };
+  
+  const pauseVideo = () => {
+    const video = videoRef.current;
+    if (video) {
+      video.pause();
+      setIsPlaying(false);
+    }
+  };
+  
+  const togglePlayPause = () => {
+    if (isPlaying) {
+      pauseVideo();
+    } else {
+      playVideo();
+    }
+  };
+  
+  const handleVolumeChange = (value: number) => {
+    setVolume(value);
+    if (videoRef.current) {
+      videoRef.current.volume = value;
+    }
+  };
+  
+  const handleProgressChange = (value: number) => {
+    setProgress(value);
+    if (videoRef.current) {
+      videoRef.current.currentTime = value;
+    }
+  };
+  
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+  
   return (
-    <div className="relative rounded-lg overflow-hidden bg-black">
-      {/* This would be replaced with a real video player in production */}
-      <div className="aspect-video flex items-center justify-center bg-black text-white">
-        <div className="text-center">
-          <img 
-            src={thumbnailUrl || "https://images.unsplash.com/photo-1636466497217-26a8cbeaf0aa?q=80&w=1200"} 
-            alt={title}
-            className="w-full h-full object-cover opacity-50"
+    <div 
+      className="relative w-full h-full bg-black"
+      onMouseMove={() => setShowControls(true)}
+    >
+      <video
+        ref={videoRef}
+        className="w-full h-full"
+        onClick={togglePlayPause}
+        poster={thumbnail}
+        preload="metadata"
+      >
+        <source src={videoUrl} type="video/mp4" />
+        Your browser does not support the video tag.
+      </video>
+      
+      {/* Video Controls */}
+      <div className={`absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
+        <div className="w-full flex flex-col gap-2">
+          {/* Progress bar */}
+          <input
+            type="range"
+            min={0}
+            max={duration || 100}
+            value={progress}
+            onChange={(e) => handleProgressChange(Number(e.target.value))}
+            className="w-full h-1 bg-white/30 rounded-full appearance-none cursor-pointer"
+            style={{
+              backgroundSize: `${(progress / (duration || 1)) * 100}% 100%`,
+              backgroundImage: 'linear-gradient(to right, white, white)'
+            }}
           />
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <div className="w-16 h-16 bg-primary/90 rounded-full flex items-center justify-center cursor-pointer hover:bg-primary transition-colors">
-              <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M11.596 8.697l-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/>
-              </svg>
+          
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              {/* Play/Pause button */}
+              <button 
+                onClick={togglePlayPause}
+                className="text-white hover:text-primary focus:outline-none"
+              >
+                {isPlaying ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="6" y="4" width="4" height="16"></rect>
+                    <rect x="14" y="4" width="4" height="16"></rect>
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                  </svg>
+                )}
+              </button>
+              
+              {/* Volume control */}
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => handleVolumeChange(volume === 0 ? 1 : 0)}
+                  className="text-white hover:text-primary focus:outline-none"
+                >
+                  {volume === 0 ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                      <line x1="23" y1="9" x2="17" y2="15"></line>
+                      <line x1="17" y1="9" x2="23" y2="15"></line>
+                    </svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                      <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                    </svg>
+                  )}
+                </button>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.1}
+                  value={volume}
+                  onChange={(e) => handleVolumeChange(Number(e.target.value))}
+                  className="w-16 h-1 bg-white/30 rounded-full appearance-none cursor-pointer hidden md:block"
+                />
+              </div>
+              
+              {/* Time display */}
+              <div className="text-sm text-white">
+                {formatTime(progress)} / {formatTime(duration)}
+              </div>
             </div>
-            <p className="mt-4 text-lg font-medium">{title}</p>
-            <p className="text-sm opacity-80">(Video playback restricted in demo)</p>
+            
+            {/* Fullscreen button */}
+            <button 
+              onClick={() => {
+                if (videoRef.current) {
+                  if (document.fullscreenElement) {
+                    document.exitFullscreen();
+                  } else {
+                    videoRef.current.requestFullscreen();
+                  }
+                }
+              }}
+              className="text-white hover:text-primary focus:outline-none"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+              </svg>
+            </button>
           </div>
         </div>
       </div>
       
-      {/* Video controls */}
-      <div className="bg-gray-900 p-3 flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <button className="text-white hover:text-primary">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      {/* Play button overlay when paused */}
+      {!isPlaying && (
+        <div 
+          className="absolute inset-0 flex items-center justify-center bg-black/30 cursor-pointer"
+          onClick={playVideo}
+        >
+          <div className="bg-white/20 rounded-full p-5 backdrop-blur-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="white" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
             </svg>
-          </button>
-          <button className="text-white hover:text-primary">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15.536a5 5 0 010-7.072m12.728 0l-4.243 4.243m-8.485 0l4.243-4.243" />
-            </svg>
-          </button>
+          </div>
         </div>
-        
-        <div className="flex items-center space-x-2">
-          <button className="text-white hover:text-primary">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-            </svg>
-          </button>
-          <button className="text-white hover:text-primary">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-          </button>
-        </div>
-      </div>
+      )}
     </div>
   );
 };
 
 export default VideoPlayer;
+export type { VideoPlayerProps };
