@@ -11,19 +11,19 @@ import DashboardLayout from '@/components/dashboard/DashboardLayout';
 
 // Define interfaces for type checking
 interface Enrollment {
-  courseId: string;
+  course_id: string;
   status: string;
 }
 
 const StudentDashboard: React.FC = () => {
   const { user, profile } = useAuth();
-  const { courses, enrolledCourses } = useCourses();
+  const { courses, enrolledCourses, enrollments } = useCourses();
   
   // Get user's enrolled courses
-  const userCourses = enrolledCourses
+  const userCourses = enrollments
     .filter(enrollment => enrollment.status === 'active')
     .map(enrollment => {
-      const course = courses.find(c => c.id === enrollment.courseId);
+      const course = courses.find(c => c.id === enrollment.course_id);
       return course;
     })
     .filter(Boolean);
