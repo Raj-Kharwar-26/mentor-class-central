@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,6 +8,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCourses } from '@/contexts/CourseContext';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
+import { Video, Calendar } from 'lucide-react';
 
 const TutorDashboard: React.FC = () => {
   const { user, profile } = useAuth();
@@ -31,29 +33,28 @@ const TutorDashboard: React.FC = () => {
       id: '1',
       courseTitle: 'Complete Physics Course for Class 12',
       title: 'Wave Optics: Advanced Problems',
-      date: '2025-05-19T15:00:00Z', // Today's date
-      duration: 90, // minutes
+      date: '2025-05-19T15:00:00Z',
+      duration: 90,
       studentsEnrolled: 128
     },
     {
       id: '2',
       courseTitle: 'Mathematics Foundation for Class 10',
       title: 'Trigonometry Mastery Session',
-      date: '2025-05-20T14:00:00Z', // Tomorrow
-      duration: 60, // minutes
+      date: '2025-05-20T14:00:00Z',
+      duration: 60,
       studentsEnrolled: 156
     },
     {
       id: '3',
       courseTitle: 'Organic Chemistry Mastery for Class 11',
       title: 'Reaction Mechanisms Deep Dive',
-      date: '2025-05-21T16:00:00Z', // Day after tomorrow
-      duration: 120, // minutes
+      date: '2025-05-21T16:00:00Z',
+      duration: 120,
       studentsEnrolled: 98
     },
   ];
 
-  // Mock recent uploads
   const recentUploads = [
     {
       id: '1',
@@ -81,7 +82,6 @@ const TutorDashboard: React.FC = () => {
     },
   ];
 
-  // Mock announcements
   const announcements = [
     {
       id: '1',
@@ -118,10 +118,16 @@ const TutorDashboard: React.FC = () => {
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" asChild>
-                  <Link to="/tutor/course/create">Create Course</Link>
+                  <Link to="/tutor/quick-start">
+                    <Video className="h-4 w-4 mr-2" />
+                    Quick Start Class
+                  </Link>
                 </Button>
                 <Button size="lg" asChild>
-                  <Link to="/tutor/schedule/create">Schedule Class</Link>
+                  <Link to="/tutor/live-classes">
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Manage Live Classes
+                  </Link>
                 </Button>
               </div>
             </div>
@@ -172,7 +178,7 @@ const TutorDashboard: React.FC = () => {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-2xl font-bold">Upcoming Live Classes</h2>
               <Button variant="outline" asChild>
-                <Link to="/tutor/schedule">View All</Link>
+                <Link to="/tutor/live-classes">View All</Link>
               </Button>
             </div>
             
@@ -216,14 +222,18 @@ const TutorDashboard: React.FC = () => {
                       <div className="flex gap-2">
                         {isLive ? (
                           <>
-                            <Button>Start Class</Button>
+                            <Button asChild>
+                              <Link to="/tutor/live-classes">Start Class</Link>
+                            </Button>
                             <Button variant="outline">Cancel</Button>
                           </>
                         ) : (
                           <>
                             <Button variant="outline">Edit</Button>
                             {sessionDate > now ? (
-                              <Button>Prepare</Button>
+                              <Button asChild>
+                                <Link to="/tutor/live-classes">Prepare</Link>
+                              </Button>
                             ) : (
                               <Button variant="secondary">View Recording</Button>
                             )}
