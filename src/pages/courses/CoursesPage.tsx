@@ -14,8 +14,8 @@ const CoursesPage: React.FC = () => {
   const { courses, isLoading } = useCourses();
   const [filteredCourses, setFilteredCourses] = useState<Course[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedSubject, setSelectedSubject] = useState<string>('');
-  const [selectedGrade, setSelectedGrade] = useState<string>('');
+  const [selectedSubject, setSelectedSubject] = useState<string>('all');
+  const [selectedGrade, setSelectedGrade] = useState<string>('all');
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 10000]);
   const [showFilters, setShowFilters] = useState(false);
 
@@ -41,12 +41,12 @@ const CoursesPage: React.FC = () => {
     }
 
     // Apply subject filter
-    if (selectedSubject) {
+    if (selectedSubject && selectedSubject !== 'all') {
       filtered = filtered.filter(course => course.subject === selectedSubject);
     }
 
     // Apply grade filter
-    if (selectedGrade) {
+    if (selectedGrade && selectedGrade !== 'all') {
       filtered = filtered.filter(course => course.class_grade === selectedGrade);
     }
 
@@ -60,8 +60,8 @@ const CoursesPage: React.FC = () => {
 
   const resetFilters = () => {
     setSearchTerm('');
-    setSelectedSubject('');
-    setSelectedGrade('');
+    setSelectedSubject('all');
+    setSelectedGrade('all');
     setPriceRange([0, 10000]);
   };
 
@@ -120,7 +120,7 @@ const CoursesPage: React.FC = () => {
                     <SelectValue placeholder="All Subjects" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Subjects</SelectItem>
+                    <SelectItem value="all">All Subjects</SelectItem>
                     {subjects.map(subject => (
                       <SelectItem key={subject} value={subject}>
                         {subject}
@@ -138,7 +138,7 @@ const CoursesPage: React.FC = () => {
                     <SelectValue placeholder="All Grades" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Grades</SelectItem>
+                    <SelectItem value="all">All Grades</SelectItem>
                     {grades.map(grade => (
                       <SelectItem key={grade} value={grade}>
                         Class {grade}
