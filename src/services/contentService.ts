@@ -1,4 +1,3 @@
-
 import api from './api';
 
 export interface Video {
@@ -35,7 +34,6 @@ export interface LiveSession {
   courseTitle: string;
   tutorId: string;
   startTime: string; // Changed from 'date' to 'startTime'
-  date: string;
   duration: number; // in minutes
   status: 'scheduled' | 'live' | 'completed' | 'cancelled';
   studentsEnrolled: number;

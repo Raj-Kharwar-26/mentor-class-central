@@ -1,10 +1,7 @@
 
 import React from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
 
 interface DashboardLayoutProps {
   children?: React.ReactNode;
@@ -32,13 +29,10 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     );
   }
 
+  // Return only the content without Header/Footer since they're already in App.tsx
   return (
-    <div className="flex flex-col min-h-screen">
-      <Header />
-      <main className="flex-1">
-        {children || <Outlet />}
-      </main>
-      <Footer />
+    <div className="flex-1">
+      {children || <Outlet />}
     </div>
   );
 };
