@@ -1,13 +1,39 @@
 
 import React, { useState, useRef, useEffect } from 'react';
+import SecureVideoPlayer from './SecureVideoPlayer';
 
 interface VideoPlayerProps {
-  videoUrl: string;
+  videoUrl?: string;
+  videoId?: string;
+  courseId?: string;
   thumbnail?: string;
   autoPlay?: boolean;
+  onProgress?: (progress: number) => void;
+  secure?: boolean;
 }
 
-const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, thumbnail, autoPlay = false }) => {
+const VideoPlayer: React.FC<VideoPlayerProps> = ({ 
+  videoUrl, 
+  videoId,
+  courseId,
+  thumbnail, 
+  autoPlay = false,
+  onProgress,
+  secure = false
+}) => {
+  // If secure mode and we have videoId and courseId, use SecureVideoPlayer
+  if (secure && videoId && courseId) {
+    return (
+      <SecureVideoPlayer
+        videoId={videoId}
+        courseId={courseId}
+        onProgress={onProgress}
+        autoPlay={autoPlay}
+      />
+    );
+  }
+
+  // Fallback to original video player implementation for non-secure videos
   const [isPlaying, setIsPlaying] = useState<boolean>(autoPlay);
   const [progress, setProgress] = useState<number>(0);
   const [duration, setDuration] = useState<number>(0);
@@ -25,7 +51,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, thumbnail, autoPlay
       });
       
       videoElement.addEventListener('timeupdate', () => {
-        setProgress(videoElement.currentTime);
+        const currentProgress = videoElement.currentTime;
+        setProgress(currentProgress);
+        onProgress?.(currentProgress);
       });
       
       videoElement.addEventListener('ended', () => {
@@ -38,11 +66,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, thumbnail, autoPlay
         videoElement.removeEventListener('ended', () => {});
       };
     }
-  }, []);
+  }, [onProgress]);
   
   // Update video when URL changes
   useEffect(() => {
-    if (videoRef.current) {
+    if (videoRef.current && videoUrl) {
       videoRef.current.load();
       setProgress(0);
       
@@ -131,7 +159,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, thumbnail, autoPlay
         poster={thumbnail}
         preload="metadata"
       >
-        <source src={videoUrl} type="video/mp4" />
+        {videoUrl && <source src={videoUrl} type="video/mp4" />}
         Your browser does not support the video tag.
       </video>
       

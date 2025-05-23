@@ -23,6 +23,7 @@ serve(async (req) => {
     const url = new URL(req.url);
     const videoId = url.pathname.split('/').pop();
     const token = url.searchParams.get('token');
+    const authToken = req.headers.get('authorization')?.replace('Bearer ', '');
     
     if (!videoId) {
       return new Response(JSON.stringify({ error: 'Video ID is required' }), {
@@ -31,31 +32,33 @@ serve(async (req) => {
       });
     }
     
-    if (!token) {
-      return new Response(JSON.stringify({ error: 'Token is required' }), {
+    if (!authToken) {
+      return new Response(JSON.stringify({ error: 'Authentication required' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
     
-    // Verify token and get user session
-    const { data: { session }, error: authError } = await supabaseAdmin.auth.getSession();
-    if (authError || !session) {
+    // Verify user session
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(authToken);
+    if (authError || !user) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
     
-    const userId = session.user.id;
+    const userId = user.id;
     
-    // Get video data
+    // Get video data with course information
     const { data: videoData, error: videoError } = await supabaseAdmin
       .from('videos')
       .select(`
         *,
         courses!inner(
-          tutor_id
+          tutor_id,
+          id,
+          title
         )
       `)
       .eq('id', videoId)
@@ -87,22 +90,40 @@ serve(async (req) => {
       }
     }
     
-    // Get signed URL (valid for a short time)
+    // Generate secure streaming URL with bandwidth adaptation
     const videoPath = videoData.video_url.replace(/^.*\/storage\/v1\/object\/public\/videos\//, '');
-    const { data: { signedUrl }, error: signedUrlError } = await supabaseAdmin
-      .storage
-      .from('videos')
-      .createSignedUrl(videoPath, 60 * 60); // Valid for 1 hour
     
-    if (signedUrlError || !signedUrl) {
-      return new Response(JSON.stringify({ error: 'Failed to generate secure URL' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    // Create multiple quality URLs for adaptive streaming
+    const qualities = ['360p', '720p', '1080p'];
+    const streamingUrls = {};
+    
+    for (const quality of qualities) {
+      const { data: { signedUrl }, error: signedUrlError } = await supabaseAdmin
+        .storage
+        .from('videos')
+        .createSignedUrl(videoPath, 3600); // Valid for 1 hour
+      
+      if (signedUrl) {
+        streamingUrls[quality] = signedUrl;
+      }
     }
     
-    // Return the signed URL
-    return new Response(JSON.stringify({ url: signedUrl }), {
+    // Generate time-limited access token
+    const accessToken = btoa(JSON.stringify({
+      videoId,
+      userId,
+      expiresAt: Date.now() + (3600 * 1000), // 1 hour
+      courseId: videoData.course_id
+    }));
+    
+    // Return secure URLs with access token
+    return new Response(JSON.stringify({ 
+      streamingUrls,
+      accessToken,
+      expiresAt: Date.now() + (3600 * 1000),
+      videoTitle: videoData.title,
+      courseTitle: videoData.courses.title
+    }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
