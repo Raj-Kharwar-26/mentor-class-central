@@ -38,7 +38,7 @@ export interface ChatMessage {
 
 class LiveStreamService {
   private peerConnection: RTCPeerConnection | null = null;
-  private localStream: MediaStream | null = null;
+  public localStream: MediaStream | null = null; // Made public
   private remoteStreams: Map<string, MediaStream> = new Map();
   private dataChannel: RTCDataChannel | null = null;
   private isScreenSharing = false;
@@ -129,7 +129,6 @@ class LiveStreamService {
     try {
       const screenStream = await navigator.mediaDevices.getDisplayMedia({
         video: { 
-          cursor: 'always',
           frameRate: { ideal: 30 }
         },
         audio: true
@@ -271,7 +270,7 @@ class LiveStreamService {
         .from('live_sessions')
         .update({ 
           recording_url: data.path,
-          status: 'ended'
+          status: 'ended' as const
         })
         .eq('id', sessionId);
 
@@ -327,7 +326,7 @@ class LiveStreamService {
         description: data.description,
         startTime: data.start_time,
         duration: data.duration,
-        status: data.status,
+        status: data.status as LiveStreamSession['status'],
         roomId: data.room_id,
         recordingUrl: data.recording_url,
         participantCount: 0
@@ -379,7 +378,7 @@ class LiveStreamService {
         description: session.description,
         startTime: session.start_time,
         duration: session.duration,
-        status: session.status,
+        status: session.status as LiveStreamSession['status'],
         roomId: session.room_id,
         recordingUrl: session.recording_url,
         participantCount: 0 // This would come from real-time participant tracking
