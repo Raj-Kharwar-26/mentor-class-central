@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,8 +8,8 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCourses } from '@/contexts/CourseContext';
 import liveStreamService from '@/services/liveStreamService';
-import LiveStreamInterface from '@/components/LiveStreamInterface';
-import { Video, Users, Clock } from 'lucide-react';
+import EnhancedLiveClassInterface from '@/components/tutor/EnhancedLiveClassInterface';
+import { Video, Users, Clock, BookOpen } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const QuickStartClass: React.FC = () => {
@@ -23,6 +24,18 @@ const QuickStartClass: React.FC = () => {
   const { user } = useAuth();
   const { courses } = useCourses();
   const { toast } = useToast();
+
+  // Pre-select the test course if available
+  React.useEffect(() => {
+    const testCourse = courses.find(course => course.title.includes('Mathematics'));
+    if (testCourse && !quickSession.courseId) {
+      setQuickSession(prev => ({ 
+        ...prev, 
+        courseId: testCourse.id,
+        title: 'Live Doubt Clearing Session'
+      }));
+    }
+  }, [courses, quickSession.courseId]);
 
   const startQuickClass = async () => {
     if (!user || !quickSession.courseId || !quickSession.title) {
@@ -42,7 +55,7 @@ const QuickStartClass: React.FC = () => {
         courseId: quickSession.courseId,
         tutorId: user.id,
         title: quickSession.title,
-        description: 'Quick start live class',
+        description: 'Quick start live class for interactive learning',
         startTime: new Date().toISOString(),
         duration: quickSession.duration
       };
@@ -55,7 +68,7 @@ const QuickStartClass: React.FC = () => {
           setActiveSession(createdSession.id);
           toast({
             title: 'Live Class Started',
-            description: 'Your quick live class has started successfully.',
+            description: 'Your live class is now active. Students can join!',
           });
         }
       }
@@ -63,7 +76,7 @@ const QuickStartClass: React.FC = () => {
       console.error('Error starting quick class:', error);
       toast({
         title: 'Error',
-        description: 'Failed to start live class.',
+        description: 'Failed to start live class. Please try again.',
         variant: 'destructive',
       });
     } finally {
@@ -77,14 +90,14 @@ const QuickStartClass: React.FC = () => {
       setActiveSession(null);
       toast({
         title: 'Live Class Ended',
-        description: 'Your quick live class has ended.',
+        description: 'Your live class has ended. Recording will be available shortly.',
       });
     }
   };
 
   if (activeSession) {
     return (
-      <LiveStreamInterface
+      <EnhancedLiveClassInterface
         sessionId={activeSession}
         isHost={true}
         onLeave={endQuickClass}
@@ -118,11 +131,19 @@ const QuickStartClass: React.FC = () => {
               <SelectContent>
                 {courses.map(course => (
                   <SelectItem key={course.id} value={course.id}>
-                    {course.title}
+                    <div className="flex items-center gap-2">
+                      <BookOpen className="h-4 w-4" />
+                      {course.title}
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {quickSession.courseId && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Enrolled students will be notified automatically
+              </p>
+            )}
           </div>
           
           <div>
@@ -150,6 +171,7 @@ const QuickStartClass: React.FC = () => {
                 <SelectItem value="45">45 minutes</SelectItem>
                 <SelectItem value="60">1 hour</SelectItem>
                 <SelectItem value="90">1.5 hours</SelectItem>
+                <SelectItem value="120">2 hours</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -174,14 +196,18 @@ const QuickStartClass: React.FC = () => {
               )}
             </Button>
             
-            <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
-              <div className="flex items-center gap-1">
-                <Users className="h-4 w-4" />
-                <span>Students will be notified</span>
+            <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1 justify-center">
+                <Users className="h-3 w-3" />
+                <span>Auto-notify</span>
               </div>
-              <div className="flex items-center gap-1">
-                <Clock className="h-4 w-4" />
-                <span>Recording available</span>
+              <div className="flex items-center gap-1 justify-center">
+                <Clock className="h-3 w-3" />
+                <span>Recording</span>
+              </div>
+              <div className="flex items-center gap-1 justify-center">
+                <Video className="h-3 w-3" />
+                <span>HD Quality</span>
               </div>
             </div>
           </div>

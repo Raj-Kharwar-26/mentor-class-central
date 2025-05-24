@@ -7,13 +7,15 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCourses } from '@/contexts/CourseContext';
 import liveStreamService, { LiveStreamSession } from '@/services/liveStreamService';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
-import LiveStreamInterface from '@/components/LiveStreamInterface';
-import { Calendar, Clock, Users, Video, Plus } from 'lucide-react';
+import EnhancedLiveClassInterface from '@/components/tutor/EnhancedLiveClassInterface';
+import ContentUpload from '@/components/tutor/ContentUpload';
+import { Calendar, Clock, Users, Video, Plus, Upload, BookOpen, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const LiveClassManagement: React.FC = () => {
@@ -21,6 +23,7 @@ const LiveClassManagement: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [activeSession, setActiveSession] = useState<string | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('sessions');
   const { user } = useAuth();
   const { courses } = useCourses();
   const { toast } = useToast();
@@ -91,7 +94,7 @@ const LiveClassManagement: React.FC = () => {
         });
         toast({
           title: 'Success',
-          description: 'Live session created successfully.',
+          description: 'Live session scheduled successfully.',
         });
       }
     } catch (error) {
@@ -148,6 +151,13 @@ const LiveClassManagement: React.FC = () => {
     }
   };
 
+  const handleContentUploaded = () => {
+    toast({
+      title: 'Content Uploaded',
+      description: 'Your content has been uploaded successfully.',
+    });
+  };
+
   const getSessionStatusColor = (status: LiveStreamSession['status']) => {
     switch (status) {
       case 'live': return 'bg-red-500 text-white';
@@ -171,7 +181,7 @@ const LiveClassManagement: React.FC = () => {
 
   if (activeSession) {
     return (
-      <LiveStreamInterface
+      <EnhancedLiveClassInterface
         sessionId={activeSession}
         isHost={true}
         onLeave={endLiveSession}
@@ -186,9 +196,9 @@ const LiveClassManagement: React.FC = () => {
           {/* Header */}
           <div className="flex justify-between items-center mb-8">
             <div>
-              <h1 className="text-3xl font-bold">Live Classes</h1>
+              <h1 className="text-3xl font-bold">Live Classes & Content</h1>
               <p className="text-muted-foreground mt-2">
-                Manage your live teaching sessions and interact with students in real-time
+                Manage your live teaching sessions and upload course content
               </p>
             </div>
             
@@ -295,94 +305,133 @@ const LiveClassManagement: React.FC = () => {
             </Dialog>
           </div>
 
-          {/* Live Sessions List */}
-          <div className="space-y-4">
-            {isLoading ? (
-              <div className="flex justify-center py-8">
-                <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full"></div>
-              </div>
-            ) : liveSessions.length === 0 ? (
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <Video className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No Live Classes Scheduled</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Schedule your first live class to start teaching students in real-time
-                  </p>
-                  <Button onClick={() => setIsCreateDialogOpen(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Schedule Live Class
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : (
-              liveSessions.map(session => {
-                const { date, time } = formatDateTime(session.startTime);
-                const isLive = session.status === 'live';
-                const isScheduled = session.status === 'scheduled';
-                const sessionTime = new Date(session.startTime);
-                const now = new Date();
-                const canStart = isScheduled && now >= sessionTime;
+          {/* Tabs */}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="sessions" className="flex items-center gap-2">
+                <Video className="h-4 w-4" />
+                Live Sessions
+              </TabsTrigger>
+              <TabsTrigger value="content" className="flex items-center gap-2">
+                <Upload className="h-4 w-4" />
+                Content Upload
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="sessions" className="space-y-4 mt-6">
+              {/* Live Sessions List */}
+              {isLoading ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full"></div>
+                </div>
+              ) : liveSessions.length === 0 ? (
+                <Card>
+                  <CardContent className="py-12 text-center">
+                    <Video className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium mb-2">No Live Classes Scheduled</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Schedule your first live class to start teaching students in real-time
+                    </p>
+                    <Button onClick={() => setIsCreateDialogOpen(true)}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Schedule Live Class
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                liveSessions.map(session => {
+                  const { date, time } = formatDateTime(session.startTime);
+                  const isLive = session.status === 'live';
+                  const isScheduled = session.status === 'scheduled';
+                  const sessionTime = new Date(session.startTime);
+                  const now = new Date();
+                  const canStart = isScheduled && now >= sessionTime;
 
-                return (
-                  <Card key={session.id} className="overflow-hidden">
-                    <CardContent className="p-6">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <h3 className="text-xl font-semibold">{session.title}</h3>
-                            <Badge className={getSessionStatusColor(session.status)}>
-                              {isLive && '🔴'} {session.status.toUpperCase()}
-                            </Badge>
+                  return (
+                    <Card key={session.id} className="overflow-hidden">
+                      <CardContent className="p-6">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <h3 className="text-xl font-semibold">{session.title}</h3>
+                              <Badge className={getSessionStatusColor(session.status)}>
+                                {isLive && '🔴'} {session.status.toUpperCase()}
+                              </Badge>
+                            </div>
+                            
+                            {session.description && (
+                              <p className="text-muted-foreground mb-4">{session.description}</p>
+                            )}
+                            
+                            <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                              <div className="flex items-center gap-1">
+                                <Calendar className="h-4 w-4" />
+                                <span>{date}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Clock className="h-4 w-4" />
+                                <span>{time} ({session.duration} min)</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Users className="h-4 w-4" />
+                                <span>{session.participantCount} participants</span>
+                              </div>
+                            </div>
                           </div>
                           
-                          {session.description && (
-                            <p className="text-muted-foreground mb-4">{session.description}</p>
-                          )}
-                          
-                          <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                            <div className="flex items-center gap-1">
-                              <Calendar className="h-4 w-4" />
-                              <span>{date}</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Clock className="h-4 w-4" />
-                              <span>{time} ({session.duration} min)</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Users className="h-4 w-4" />
-                              <span>{session.participantCount} participants</span>
-                            </div>
+                          <div className="flex gap-2 ml-4">
+                            {isLive ? (
+                              <Button onClick={endLiveSession} variant="destructive">
+                                End Class
+                              </Button>
+                            ) : canStart ? (
+                              <Button onClick={() => startLiveSession(session.id)}>
+                                <Video className="h-4 w-4 mr-2" />
+                                Start Class
+                              </Button>
+                            ) : session.status === 'ended' ? (
+                              <Button variant="outline" disabled>
+                                Completed
+                              </Button>
+                            ) : (
+                              <Button variant="outline" disabled>
+                                Scheduled
+                              </Button>
+                            )}
                           </div>
                         </div>
-                        
-                        <div className="flex gap-2 ml-4">
-                          {isLive ? (
-                            <Button onClick={endLiveSession} variant="destructive">
-                              End Class
-                            </Button>
-                          ) : canStart ? (
-                            <Button onClick={() => startLiveSession(session.id)}>
-                              <Video className="h-4 w-4 mr-2" />
-                              Start Class
-                            </Button>
-                          ) : session.status === 'ended' ? (
-                            <Button variant="outline" disabled>
-                              Completed
-                            </Button>
-                          ) : (
-                            <Button variant="outline" disabled>
-                              Scheduled
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })
-            )}
-          </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })
+              )}
+            </TabsContent>
+            
+            <TabsContent value="content" className="mt-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {courses.map(course => (
+                  <div key={course.id} className="space-y-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <BookOpen className="h-5 w-5" />
+                          {course.title}
+                        </CardTitle>
+                        <p className="text-sm text-muted-foreground">
+                          {course.subject} • Class {course.class_grade}
+                        </p>
+                      </CardHeader>
+                    </Card>
+                    
+                    <ContentUpload
+                      courseId={course.id}
+                      onContentUploaded={handleContentUploaded}
+                    />
+                  </div>
+                ))}
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </DashboardLayout>

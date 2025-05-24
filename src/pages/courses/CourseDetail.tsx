@@ -10,10 +10,11 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Star, Clock, Users, FileText, Video as VideoIcon, Calendar, CheckCircle } from 'lucide-react';
+import { Star, Clock, Users, FileText, Video as VideoIcon, Calendar, CheckCircle, Play } from 'lucide-react';
 import { Course, LiveSession, PDF, VideoContent, useCourses } from '@/contexts/CourseContext';
 import { useToast } from '@/components/ui/use-toast';
 import VideoPlayer from '@/components/VideoPlayer';
+import StudentLiveClass from '@/components/student/StudentLiveClass';
 
 const CourseDetail: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -25,6 +26,7 @@ const CourseDetail: React.FC = () => {
   const [pdfs, setPdfs] = useState<PDF[]>([]);
   const [liveSessions, setLiveSessions] = useState<LiveSession[]>([]);
   const [selectedVideo, setSelectedVideo] = useState<VideoContent | null>(null);
+  const [activeLiveSession, setActiveLiveSession] = useState<string | null>(null);
   const { toast } = useToast();
   
   useEffect(() => {
@@ -91,6 +93,22 @@ const CourseDetail: React.FC = () => {
       setEnrolling(false);
     }
   };
+
+  const joinLiveSession = (sessionId: string) => {
+    setActiveLiveSession(sessionId);
+    toast({
+      title: 'Joining Live Class',
+      description: 'You are now joining the live class.',
+    });
+  };
+
+  const leaveLiveSession = () => {
+    setActiveLiveSession(null);
+    toast({
+      title: 'Left Live Class',
+      description: 'You have left the live class.',
+    });
+  };
   
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -126,6 +144,16 @@ const CourseDetail: React.FC = () => {
         return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
     }
   };
+
+  // If in live session, show the live class interface
+  if (activeLiveSession) {
+    return (
+      <StudentLiveClass 
+        sessionId={activeLiveSession}
+        onLeave={leaveLiveSession}
+      />
+    );
+  }
   
   if (loading) {
     return (
@@ -338,9 +366,14 @@ const CourseDetail: React.FC = () => {
                               {session.status.charAt(0).toUpperCase() + session.status.slice(1)}
                             </Badge>
                             
-                            {session.status === 'live' && (
-                              <Button size="sm">
-                                Join Now
+                            {session.status === 'live' && isEnrolled(course.id) && (
+                              <Button 
+                                size="sm"
+                                onClick={() => joinLiveSession(session.id)}
+                                className="bg-red-600 hover:bg-red-700"
+                              >
+                                <Play className="h-4 w-4 mr-2" />
+                                Join Live Class
                               </Button>
                             )}
                             {session.status === 'scheduled' && (
