@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { 
@@ -341,9 +342,7 @@ const CourseDetail: React.FC = () => {
                   <p className="text-sm text-muted-foreground mb-3">
                     You're viewing the preview content. Enroll in this course to access all materials.
                   </p>
-                  <Button onClick={handleEnrollment} disabled={enrolling}>
-                    {enrolling ? 'Enrolling...' : 'Enroll Now'}
-                  </Button>
+                  <QuickEnrollButton courseId={course.id} courseName={course.title} />
                 </div>
               )}
             </TabsContent>
@@ -415,9 +414,7 @@ const CourseDetail: React.FC = () => {
                   <p className="text-sm text-muted-foreground mb-3">
                     You can view the schedule, but you need to enroll to join the live sessions.
                   </p>
-                  <Button onClick={handleEnrollment} disabled={enrolling}>
-                    {enrolling ? 'Enrolling...' : 'Enroll Now'}
-                  </Button>
+                  <QuickEnrollButton courseId={course.id} courseName={course.title} />
                 </div>
               )}
             </TabsContent>
