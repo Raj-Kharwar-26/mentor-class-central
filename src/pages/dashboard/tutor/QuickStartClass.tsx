@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,7 +9,7 @@ import { useCourses } from '@/contexts/CourseContext';
 import liveStreamService from '@/services/liveStreamService';
 import LiveStreamInterface from '@/components/LiveStreamInterface';
 import { Video, Users, Clock } from 'lucide-react';
-import { useToast } = '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast';
 
 const QuickStartClass: React.FC = () => {
   const [isStarting, setIsStarting] = useState(false);
