@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { 
@@ -10,18 +9,20 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Star, Clock, Users, FileText, Video as VideoIcon, Calendar, CheckCircle, Play } from 'lucide-react';
+import { Star, Clock, Users, FileText, Video as VideoIcon, Calendar, CheckCircle, Play, AlertCircle } from 'lucide-react';
 import { Course, LiveSession, PDF, VideoContent, useCourses } from '@/contexts/CourseContext';
-import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 import VideoPlayer from '@/components/VideoPlayer';
 import StudentLiveClass from '@/components/student/StudentLiveClass';
+import QuickEnrollButton from '@/components/QuickEnrollButton';
 
 const CourseDetail: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
-  const { getCourseById, enrollInCourse, isEnrolled, getCourseVideos, getCoursePDFs, getCourseLiveSessions } = useCourses();
+  const { getCourseById, isEnrolled, getCourseVideos, getCoursePDFs, getCourseLiveSessions } = useCourses();
+  const { isAuthenticated } = useAuth();
   const [course, setCourse] = useState<Course | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [enrolling, setEnrolling] = useState<boolean>(false);
   const [videos, setVideos] = useState<VideoContent[]>([]);
   const [pdfs, setPdfs] = useState<PDF[]>([]);
   const [liveSessions, setLiveSessions] = useState<LiveSession[]>([]);
@@ -33,16 +34,23 @@ const CourseDetail: React.FC = () => {
     const fetchCourseDetails = async () => {
       if (!courseId) return;
       
+      console.log('Fetching course details for:', courseId);
       setLoading(true);
       try {
         const courseData = await getCourseById(courseId);
+        console.log('Course data received:', courseData);
+        
         if (courseData) {
           setCourse(courseData);
           
           // Fetch course content
-          const videosData = await getCourseVideos(courseId);
-          const pdfsData = await getCoursePDFs(courseId);
-          const liveSessionsData = await getCourseLiveSessions(courseId);
+          const [videosData, pdfsData, liveSessionsData] = await Promise.all([
+            getCourseVideos(courseId),
+            getCoursePDFs(courseId),
+            getCourseLiveSessions(courseId)
+          ]);
+          
+          console.log('Content loaded:', { videos: videosData.length, pdfs: pdfsData.length, sessions: liveSessionsData.length });
           
           setVideos(videosData);
           setPdfs(pdfsData);
@@ -53,6 +61,7 @@ const CourseDetail: React.FC = () => {
             setSelectedVideo(videosData[0]);
           }
         } else {
+          console.log('No course data found');
           toast({
             title: 'Course not found',
             description: 'The requested course could not be found.',
@@ -73,28 +82,26 @@ const CourseDetail: React.FC = () => {
     
     fetchCourseDetails();
   }, [courseId, getCourseById, getCourseVideos, getCoursePDFs, getCourseLiveSessions, toast]);
-  
-  const handleEnrollment = async () => {
-    if (!courseId) return;
-    
-    setEnrolling(true);
-    try {
-      const success = await enrollInCourse(courseId);
-      if (success) {
-        // Refresh course data to update enrollment status
-        const updatedCourse = await getCourseById(courseId);
-        if (updatedCourse) {
-          setCourse(updatedCourse);
-        }
-      }
-    } catch (error) {
-      console.error('Error enrolling in course:', error);
-    } finally {
-      setEnrolling(false);
-    }
-  };
 
   const joinLiveSession = (sessionId: string) => {
+    if (!isAuthenticated) {
+      toast({
+        title: 'Authentication Required',
+        description: 'Please log in to join live classes.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    if (!courseId || !isEnrolled(courseId)) {
+      toast({
+        title: 'Enrollment Required',
+        description: 'Please enroll in this course to join live classes.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
     setActiveLiveSession(sessionId);
     toast({
       title: 'Joining Live Class',
@@ -169,17 +176,35 @@ const CourseDetail: React.FC = () => {
   if (!course) {
     return (
       <div className="container mx-auto py-8 text-center">
-        <h2 className="text-2xl font-bold mb-4">Course Not Found</h2>
-        <p className="mb-6">The course you're looking for doesn't exist or has been removed.</p>
-        <Link to="/courses">
-          <Button>Browse All Courses</Button>
-        </Link>
+        <div className="flex flex-col items-center space-y-4">
+          <AlertCircle className="h-16 w-16 text-muted-foreground" />
+          <h2 className="text-2xl font-bold mb-4">Course Not Found</h2>
+          <p className="mb-6">The course you're looking for doesn't exist or has been removed.</p>
+          <Link to="/courses">
+            <Button>Browse All Courses</Button>
+          </Link>
+        </div>
       </div>
     );
   }
   
   return (
     <div className="container mx-auto py-8 px-4 md:px-6">
+      {/* Quick enrollment banner for non-enrolled users */}
+      {!isEnrolled(course.id) && isAuthenticated && (
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-blue-900">Enroll to Access Full Content</h3>
+              <p className="text-blue-700">Join this course to access all videos, materials, and live classes.</p>
+            </div>
+            <div className="ml-4">
+              <QuickEnrollButton courseId={course.id} courseName={course.title} />
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Course Info - Left Column */}
         <div className="lg:col-span-2">
@@ -274,19 +299,6 @@ const CourseDetail: React.FC = () => {
                   {selectedVideo.description && (
                     <p className="mt-3 text-muted-foreground">{selectedVideo.description}</p>
                   )}
-                </div>
-              )}
-              
-              {/* Showing limited videos if not enrolled */}
-              {!isEnrolled(course.id) && videos.length > 2 && (
-                <div className="mt-6 p-4 border rounded-lg bg-muted/50">
-                  <h3 className="font-semibold">Enroll to access all {videos.length} videos</h3>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    You're viewing the preview content. Enroll in this course to access all materials.
-                  </p>
-                  <Button onClick={handleEnrollment} disabled={enrolling}>
-                    {enrolling ? 'Enrolling...' : 'Enroll Now'}
-                  </Button>
                 </div>
               )}
             </TabsContent>
@@ -429,23 +441,9 @@ const CourseDetail: React.FC = () => {
                   {formatPrice(course.price)}
                 </div>
                 
-                {isEnrolled(course.id) ? (
-                  <div className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300 p-3 rounded-md flex items-center mb-4">
-                    <CheckCircle className="h-5 w-5 mr-2" />
-                    <span>You are enrolled in this course</span>
-                  </div>
-                ) : (
-                  <Button 
-                    className="w-full mb-3" 
-                    size="lg"
-                    onClick={handleEnrollment}
-                    disabled={enrolling}
-                  >
-                    {enrolling ? 'Enrolling...' : 'Enroll Now'}
-                  </Button>
-                )}
+                <QuickEnrollButton courseId={course.id} courseName={course.title} />
                 
-                <p className="text-center text-sm text-muted-foreground">
+                <p className="text-center text-sm text-muted-foreground mt-3">
                   Access to all course materials
                 </p>
               </div>
