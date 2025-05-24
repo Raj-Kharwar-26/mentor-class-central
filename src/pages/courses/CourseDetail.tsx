@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { 
@@ -24,6 +23,7 @@ const CourseDetail: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const [course, setCourse] = useState<Course | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   const [videos, setVideos] = useState<VideoContent[]>([]);
   const [pdfs, setPdfs] = useState<PDF[]>([]);
   const [liveSessions, setLiveSessions] = useState<LiveSession[]>([]);
@@ -33,10 +33,17 @@ const CourseDetail: React.FC = () => {
   
   useEffect(() => {
     const fetchCourseDetails = async () => {
-      if (!courseId) return;
+      if (!courseId) {
+        console.log('No courseId provided');
+        setError('No course ID provided');
+        setLoading(false);
+        return;
+      }
       
       console.log('Fetching course details for:', courseId);
       setLoading(true);
+      setError(null);
+      
       try {
         const courseData = await getCourseById(courseId);
         console.log('Course data received:', courseData);
@@ -44,33 +51,35 @@ const CourseDetail: React.FC = () => {
         if (courseData) {
           setCourse(courseData);
           
-          // Fetch course content
+          // Fetch course content in parallel
+          console.log('Fetching course content...');
           const [videosData, pdfsData, liveSessionsData] = await Promise.all([
             getCourseVideos(courseId),
             getCoursePDFs(courseId),
             getCourseLiveSessions(courseId)
           ]);
           
-          console.log('Content loaded:', { videos: videosData.length, pdfs: pdfsData.length, sessions: liveSessionsData.length });
+          console.log('Content loaded:', { 
+            videos: videosData?.length || 0, 
+            pdfs: pdfsData?.length || 0, 
+            sessions: liveSessionsData?.length || 0 
+          });
           
-          setVideos(videosData);
-          setPdfs(pdfsData);
-          setLiveSessions(liveSessionsData);
+          setVideos(videosData || []);
+          setPdfs(pdfsData || []);
+          setLiveSessions(liveSessionsData || []);
           
           // Set first video as selected if available
-          if (videosData.length > 0) {
+          if (videosData && videosData.length > 0) {
             setSelectedVideo(videosData[0]);
           }
         } else {
-          console.log('No course data found');
-          toast({
-            title: 'Course not found',
-            description: 'The requested course could not be found.',
-            variant: 'destructive',
-          });
+          console.log('No course data found for ID:', courseId);
+          setError('Course not found');
         }
       } catch (error) {
         console.error('Error fetching course details:', error);
+        setError('Failed to load course details');
         toast({
           title: 'Error',
           description: 'Failed to load course details. Please try again.',
@@ -166,24 +175,38 @@ const CourseDetail: React.FC = () => {
   if (loading) {
     return (
       <div className="container mx-auto py-8 flex justify-center items-center min-h-[60vh]">
-        <div className="flex flex-col items-center">
+        <div className="flex flex-col items-center space-y-4">
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
           <p className="mt-4 text-muted-foreground">Loading course details...</p>
+          <p className="text-sm text-muted-foreground">Course ID: {courseId}</p>
         </div>
       </div>
     );
   }
   
-  if (!course) {
+  if (error || !course) {
     return (
       <div className="container mx-auto py-8 text-center">
         <div className="flex flex-col items-center space-y-4">
           <AlertCircle className="h-16 w-16 text-muted-foreground" />
-          <h2 className="text-2xl font-bold mb-4">Course Not Found</h2>
-          <p className="mb-6">The course you're looking for doesn't exist or has been removed.</p>
-          <Link to="/courses">
-            <Button>Browse All Courses</Button>
-          </Link>
+          <h2 className="text-2xl font-bold mb-4">
+            {error === 'Course not found' ? 'Course Not Found' : 'Error Loading Course'}
+          </h2>
+          <p className="mb-6 text-muted-foreground">
+            {error || 'The course you\'re looking for doesn\'t exist or has been removed.'}
+          </p>
+          <p className="text-sm text-muted-foreground mb-4">Course ID: {courseId}</p>
+          <div className="flex gap-4">
+            <Link to="/courses">
+              <Button>Browse All Courses</Button>
+            </Link>
+            <Button 
+              variant="outline" 
+              onClick={() => window.location.reload()}
+            >
+              Try Again
+            </Button>
+          </div>
         </div>
       </div>
     );
